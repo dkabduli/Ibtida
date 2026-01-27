@@ -1,0 +1,660 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		43E40EBC2F26FAD80079A194 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 43E40EBB2F26FAD80079A194 /* FirebaseAuth */; };
+		43E40EBE2F26FAD80079A194 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 43E40EBD2F26FAD80079A194 /* FirebaseCore */; };
+		43E40EC02F26FAD80079A194 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 43E40EBF2F26FAD80079A194 /* FirebaseFirestore */; };
+		43E40EC82F2700B20079A194 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 43E40EC72F2700B20079A194 /* GoogleSignIn */; };
+		43E40ECA2F2700B20079A194 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 43E40EC92F2700B20079A194 /* GoogleSignInSwift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		43E40E162F26BC7E0079A194 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 43E40DFE2F26BC7D0079A194 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 43E40E052F26BC7D0079A194;
+			remoteInfo = Ibtida;
+		};
+		43E40E202F26BC7E0079A194 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 43E40DFE2F26BC7D0079A194 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 43E40E052F26BC7D0079A194;
+			remoteInfo = Ibtida;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		43E40E062F26BC7D0079A194 /* Ibtida.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Ibtida.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		43E40E152F26BC7E0079A194 /* IbtidaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IbtidaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		43E40E1F2F26BC7E0079A194 /* IbtidaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IbtidaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		43E410342F27E6630079A194 /* Exceptions for "Ibtida" folder in "Ibtida" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 43E40E052F26BC7D0079A194 /* Ibtida */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		43E40E082F26BC7D0079A194 /* Ibtida */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				43E410342F27E6630079A194 /* Exceptions for "Ibtida" folder in "Ibtida" target */,
+			);
+			path = Ibtida;
+			sourceTree = "<group>";
+		};
+		43E40E182F26BC7E0079A194 /* IbtidaTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = IbtidaTests;
+			sourceTree = "<group>";
+		};
+		43E40E222F26BC7E0079A194 /* IbtidaUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = IbtidaUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		43E40E032F26BC7D0079A194 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				43E40ECA2F2700B20079A194 /* GoogleSignInSwift in Frameworks */,
+				43E40EBE2F26FAD80079A194 /* FirebaseCore in Frameworks */,
+				43E40EC82F2700B20079A194 /* GoogleSignIn in Frameworks */,
+				43E40EBC2F26FAD80079A194 /* FirebaseAuth in Frameworks */,
+				43E40EC02F26FAD80079A194 /* FirebaseFirestore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		43E40E122F26BC7E0079A194 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		43E40E1C2F26BC7E0079A194 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		43E40DFD2F26BC7D0079A194 = {
+			isa = PBXGroup;
+			children = (
+				43E40E082F26BC7D0079A194 /* Ibtida */,
+				43E40E182F26BC7E0079A194 /* IbtidaTests */,
+				43E40E222F26BC7E0079A194 /* IbtidaUITests */,
+				43E40E072F26BC7D0079A194 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		43E40E072F26BC7D0079A194 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				43E40E062F26BC7D0079A194 /* Ibtida.app */,
+				43E40E152F26BC7E0079A194 /* IbtidaTests.xctest */,
+				43E40E1F2F26BC7E0079A194 /* IbtidaUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		43E40E052F26BC7D0079A194 /* Ibtida */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 43E40E292F26BC7E0079A194 /* Build configuration list for PBXNativeTarget "Ibtida" */;
+			buildPhases = (
+				43E40E022F26BC7D0079A194 /* Sources */,
+				43E40E032F26BC7D0079A194 /* Frameworks */,
+				43E40E042F26BC7D0079A194 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				43E40E082F26BC7D0079A194 /* Ibtida */,
+			);
+			name = Ibtida;
+			packageProductDependencies = (
+				43E40EBB2F26FAD80079A194 /* FirebaseAuth */,
+				43E40EBD2F26FAD80079A194 /* FirebaseCore */,
+				43E40EBF2F26FAD80079A194 /* FirebaseFirestore */,
+				43E40EC72F2700B20079A194 /* GoogleSignIn */,
+				43E40EC92F2700B20079A194 /* GoogleSignInSwift */,
+			);
+			productName = Ibtida;
+			productReference = 43E40E062F26BC7D0079A194 /* Ibtida.app */;
+			productType = "com.apple.product-type.application";
+		};
+		43E40E142F26BC7E0079A194 /* IbtidaTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 43E40E2C2F26BC7E0079A194 /* Build configuration list for PBXNativeTarget "IbtidaTests" */;
+			buildPhases = (
+				43E40E112F26BC7E0079A194 /* Sources */,
+				43E40E122F26BC7E0079A194 /* Frameworks */,
+				43E40E132F26BC7E0079A194 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				43E40E172F26BC7E0079A194 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				43E40E182F26BC7E0079A194 /* IbtidaTests */,
+			);
+			name = IbtidaTests;
+			packageProductDependencies = (
+			);
+			productName = IbtidaTests;
+			productReference = 43E40E152F26BC7E0079A194 /* IbtidaTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		43E40E1E2F26BC7E0079A194 /* IbtidaUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 43E40E2F2F26BC7E0079A194 /* Build configuration list for PBXNativeTarget "IbtidaUITests" */;
+			buildPhases = (
+				43E40E1B2F26BC7E0079A194 /* Sources */,
+				43E40E1C2F26BC7E0079A194 /* Frameworks */,
+				43E40E1D2F26BC7E0079A194 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				43E40E212F26BC7E0079A194 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				43E40E222F26BC7E0079A194 /* IbtidaUITests */,
+			);
+			name = IbtidaUITests;
+			packageProductDependencies = (
+			);
+			productName = IbtidaUITests;
+			productReference = 43E40E1F2F26BC7E0079A194 /* IbtidaUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		43E40DFE2F26BC7D0079A194 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2620;
+				LastUpgradeCheck = 2620;
+				TargetAttributes = {
+					43E40E052F26BC7D0079A194 = {
+						CreatedOnToolsVersion = 26.2;
+					};
+					43E40E142F26BC7E0079A194 = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = 43E40E052F26BC7D0079A194;
+					};
+					43E40E1E2F26BC7E0079A194 = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = 43E40E052F26BC7D0079A194;
+					};
+				};
+			};
+			buildConfigurationList = 43E40E012F26BC7D0079A194 /* Build configuration list for PBXProject "Ibtida" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 43E40DFD2F26BC7D0079A194;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				43E40EBA2F26FAD80079A194 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				43E40EC62F2700B20079A194 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 43E40E072F26BC7D0079A194 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				43E40E052F26BC7D0079A194 /* Ibtida */,
+				43E40E142F26BC7E0079A194 /* IbtidaTests */,
+				43E40E1E2F26BC7E0079A194 /* IbtidaUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		43E40E042F26BC7D0079A194 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		43E40E132F26BC7E0079A194 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		43E40E1D2F26BC7E0079A194 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		43E40E022F26BC7D0079A194 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		43E40E112F26BC7E0079A194 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		43E40E1B2F26BC7E0079A194 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		43E40E172F26BC7E0079A194 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 43E40E052F26BC7D0079A194 /* Ibtida */;
+			targetProxy = 43E40E162F26BC7E0079A194 /* PBXContainerItemProxy */;
+		};
+		43E40E212F26BC7E0079A194 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 43E40E052F26BC7D0079A194 /* Ibtida */;
+			targetProxy = 43E40E202F26BC7E0079A194 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		43E40E272F26BC7E0079A194 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = N62R62Q3WM;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		43E40E282F26BC7E0079A194 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = N62R62Q3WM;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		43E40E2A2F26BC7E0079A194 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N62R62Q3WM;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Ibtida/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.Ibtida;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		43E40E2B2F26BC7E0079A194 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N62R62Q3WM;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Ibtida/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.Ibtida;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		43E40E2D2F26BC7E0079A194 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N62R62Q3WM;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.IbtidaTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Ibtida.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Ibtida";
+			};
+			name = Debug;
+		};
+		43E40E2E2F26BC7E0079A194 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N62R62Q3WM;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.IbtidaTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Ibtida.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Ibtida";
+			};
+			name = Release;
+		};
+		43E40E302F26BC7E0079A194 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N62R62Q3WM;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.IbtidaUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Ibtida;
+			};
+			name = Debug;
+		};
+		43E40E312F26BC7E0079A194 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N62R62Q3WM;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.IbtidaUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Ibtida;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		43E40E012F26BC7D0079A194 /* Build configuration list for PBXProject "Ibtida" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				43E40E272F26BC7E0079A194 /* Debug */,
+				43E40E282F26BC7E0079A194 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		43E40E292F26BC7E0079A194 /* Build configuration list for PBXNativeTarget "Ibtida" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				43E40E2A2F26BC7E0079A194 /* Debug */,
+				43E40E2B2F26BC7E0079A194 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		43E40E2C2F26BC7E0079A194 /* Build configuration list for PBXNativeTarget "IbtidaTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				43E40E2D2F26BC7E0079A194 /* Debug */,
+				43E40E2E2F26BC7E0079A194 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		43E40E2F2F26BC7E0079A194 /* Build configuration list for PBXNativeTarget "IbtidaUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				43E40E302F26BC7E0079A194 /* Debug */,
+				43E40E312F26BC7E0079A194 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		43E40EBA2F26FAD80079A194 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.8.0;
+			};
+		};
+		43E40EC62F2700B20079A194 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.1.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		43E40EBB2F26FAD80079A194 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 43E40EBA2F26FAD80079A194 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		43E40EBD2F26FAD80079A194 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 43E40EBA2F26FAD80079A194 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		43E40EBF2F26FAD80079A194 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 43E40EBA2F26FAD80079A194 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		43E40EC72F2700B20079A194 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 43E40EC62F2700B20079A194 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		43E40EC92F2700B20079A194 /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 43E40EC62F2700B20079A194 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 43E40DFE2F26BC7D0079A194 /* Project object */;
+}
