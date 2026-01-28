@@ -186,7 +186,7 @@ struct AppSettingsView: View {
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(Color.warmSecondaryText(colorScheme))
         } footer: {
-            Text("Ibtida - Your Islamic Prayer Companion")
+            Text(AppStrings.yourIslamicPrayerCompanion)
                 .font(.system(size: 12))
                 .foregroundColor(Color.warmSecondaryText(colorScheme))
                 .frame(maxWidth: .infinity)

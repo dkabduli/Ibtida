@@ -20,9 +20,8 @@ class LocalStorageService {
     private var onboardingComplete: Bool = false
     
     private init() {
-        #if DEBUG
-        print("✅ LocalStorageService initialized (in-memory only, no disk persistence)")
-        #endif
+        // Only log initialization once, not on every access
+        AppLog.verbose("LocalStorageService initialized (in-memory only, no disk persistence)")
     }
     
     // MARK: - Dua Popup Date (In-Memory Only)
@@ -33,9 +32,8 @@ class LocalStorageService {
     
     func setLastDuaPopupDate(_ date: String) {
         lastDuaPopupDate = date
-        #if DEBUG
-        print("📝 LocalStorageService: Set last dua popup date (in-memory): \(date)")
-        #endif
+        // Only log state changes, not every access
+        AppLog.verbose("Set last dua popup date (in-memory): \(date)")
     }
     
     // MARK: - Onboarding (In-Memory Only)
@@ -53,8 +51,6 @@ class LocalStorageService {
     func resetForLogout() {
         lastDuaPopupDate = nil
         onboardingComplete = false
-        #if DEBUG
-        print("🧹 LocalStorageService: Cleared in-memory state for logout")
-        #endif
+        AppLog.state("Cleared in-memory state for logout")
     }
 }

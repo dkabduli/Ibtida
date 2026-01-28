@@ -389,7 +389,7 @@ struct AboutView: View {
                                 .foregroundColor(.mutedGold)
                         }
                         
-                        Text("Ibtida")
+                        Text(AppStrings.appName)
                             .font(.system(size: 32, weight: .bold, design: .rounded))
                             .foregroundColor(Color.warmText(colorScheme))
                         
@@ -402,11 +402,11 @@ struct AboutView: View {
                     
                     // Description
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("About Ibtida")
+                        Text(AppStrings.aboutApp)
                             .font(.system(size: 20, weight: .semibold, design: .rounded))
                             .foregroundColor(Color.warmText(colorScheme))
                         
-                        Text("Ibtida is a spiritual companion app designed to help you strengthen your connection with Allah through daily duas, prayer tracking, and community support.")
+                        Text(AppStrings.aboutDescription)
                             .font(.system(size: 16))
                             .foregroundColor(Color.warmText(colorScheme))
                             .lineSpacing(4)

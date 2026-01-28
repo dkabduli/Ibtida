@@ -26,7 +26,7 @@ enum FirestorePaths {
     static let prayerDays = "prayerDays"
     
     /// Prayer day document path
-    /// Format: users/{uid}/prayerDays/{yyyy-MM-dd}
+    /// Format: users/{uid}/prayerDays/{yyyy-MM-dd} (timezone-aware dayId)
     static func prayerDayDocument(uid: String, dateString: String) -> String {
         "\(users)/\(uid)/\(prayerDays)/\(dateString)"
     }
@@ -104,17 +104,14 @@ enum FirestorePaths {
     
     // MARK: - Helper Functions
     
-    /// Format date to string for document IDs
-    static func dateString(from date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: date)
+    /// Format date to string for document IDs (timezone-aware)
+    /// Uses DateUtils for consistent timezone handling
+    static func dateString(from date: Date = Date()) -> String {
+        return DateUtils.dayId(for: date)
     }
     
-    /// Parse date string back to Date
+    /// Parse date string back to Date (timezone-aware)
     static func date(from dateString: String) -> Date? {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.date(from: dateString)
+        return DateUtils.date(from: dateString)
     }
 }

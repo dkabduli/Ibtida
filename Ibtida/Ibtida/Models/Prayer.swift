@@ -80,14 +80,14 @@ enum PrayerStatus: String, CaseIterable, Identifiable, Codable {
     
     var displayName: String {
         switch self {
-        case .none: return "Not Logged"
-        case .onTime: return "On Time"
-        case .late: return "Late"
-        case .qada: return "Qada"
-        case .missed: return "Missed"
-        case .prayedAtMasjid: return "At Masjid"
-        case .prayedAtHome: return "At Home"
-        case .menstrual: return "Menstrual"
+        case .none: return "Not yet logged"
+        case .onTime: return "On time"
+        case .late: return "Later"
+        case .qada: return "Made up"
+        case .missed: return "Not logged" // Gentle: avoids "missed" or "failed"
+        case .prayedAtMasjid: return "At masjid"
+        case .prayedAtHome: return "At home"
+        case .menstrual: return "Not applicable" // Respectful, neutral
         }
     }
     

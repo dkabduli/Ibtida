@@ -29,7 +29,7 @@ struct GenderOnboardingView: View {
                         .font(.system(size: 80))
                         .foregroundColor(.mutedGold)
                     
-                    Text("Welcome to Ibtida")
+                    Text(AppStrings.welcomeToApp)
                         .font(.system(size: 28, weight: .bold, design: .rounded))
                         .foregroundColor(Color.warmText(colorScheme))
                     

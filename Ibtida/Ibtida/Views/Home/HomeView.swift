@@ -141,6 +141,7 @@ struct HomeView: View {
                 
                 FiveWeekProgressView(
                     prayerLogs: viewModel.prayerLogs,
+                    todayPrayers: nil, // HomeView doesn't have todayPrayers - will use logs only
                     onPrayerTap: { date, prayer in
                         selectedPrayer = (date, prayer)
                         showPrayerStatusPicker = true
@@ -318,79 +319,105 @@ struct WeeklyPrayerGridView: View {
 
 struct FiveWeekProgressView: View {
     let prayerLogs: [PrayerLog]
+    let todayPrayers: PrayerDay? // Today's prayer day for highlighting
     let onPrayerTap: (Date, PrayerType) -> Void
     
+    // Get today's dayId (timezone-aware)
+    private var todayDayId: String {
+        DateUtils.dayId()
+    }
+    
     var body: some View {
-        VStack(spacing: AppSpacing.md) {
-            // Week columns (oldest to newest, left to right - current week is rightmost)
-            HStack(spacing: AppSpacing.md) {
-                ForEach(weekRanges, id: \.start) { weekRange in
-                    VStack(spacing: AppSpacing.sm) {
-                        // Week label
-                        Text(weekLabel(for: weekRange.start))
-                            .font(AppTypography.captionBold)
-                            .foregroundColor(.primary)
-                            .frame(height: 20)
-                        
-                        // Prayer circles for this week (5 circles = 5 prayers)
-                        VStack(spacing: 6) {
-                            ForEach(PrayerType.allCases) { prayer in
-                                let averageStatus = averageStatusForWeek(weekRange: weekRange, prayer: prayer)
-                                
-                                Circle()
-                                    .fill(statusColor(averageStatus))
-                                    .frame(width: 28, height: 28)
-                                    .overlay(
-                                        Circle()
-                                            .stroke(Color(.separator).opacity(0.3), lineWidth: 0.5)
-                                    )
-                            }
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
+        // 5 weeks side-by-side (horizontal) - oldest to newest (current week rightmost)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: layout.interWeekSpacing) {
+                ForEach(Array(weekStarts.enumerated()), id: \.offset) { weekIndex, weekStart in
+                    WeekColumn(
+                        weekStart: weekStart,
+                        weekDays: daysInWeek(containing: weekStart),
+                        prayerLogs: prayerLogs,
+                        todayPrayers: todayPrayers,
+                        todayDayId: todayDayId,
+                        layout: layout
+                    )
                 }
             }
+            .padding(.horizontal, layout.horizontalPadding)
         }
-        .padding(.vertical, AppSpacing.sm)
+        .padding(.vertical, layout.verticalPadding)
     }
     
-    // Get the last 5 weeks (oldest to newest, so current week is rightmost)
-    private var weekRanges: [(start: Date, end: Date)] {
-        let calendar = Calendar.current
-        let now = Date()
-        var weeks: [(start: Date, end: Date)] = []
-        
-        // Get current week start
-        let currentWeekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now))!
-        
-        // Generate last 5 weeks (including current week)
-        // Start from 4 weeks ago and go to current week
-        for weekOffset in 0..<5 {
-            let weekStart = calendar.date(byAdding: .weekOfYear, value: -weekOffset, to: currentWeekStart)!
-            let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart)!
-            weeks.append((start: weekStart, end: weekEnd))
-        }
-        
-        // Reverse so oldest is left, newest (current) is right
-        return weeks.reversed()
+    // MARK: - Layout Calculation
+    
+    struct WeekLayout {
+        let circleSize: CGFloat
+        let circleSpacing: CGFloat
+        let rowSpacing: CGFloat
+        let interWeekSpacing: CGFloat
+        let horizontalPadding: CGFloat
+        let verticalPadding: CGFloat
+        let weekColumnWidth: CGFloat
+        let labelHeight: CGFloat
     }
     
-    private func weekLabel(for weekStart: Date) -> String {
+    // Optimized layout: larger circles, better fill, responsive
+    private var layout: WeekLayout {
+        // Increased sizes for better visual fill
+        let circleSize: CGFloat = 16 // Increased from 12
+        let circleSpacing: CGFloat = 5 // Increased from 3
+        let rowSpacing: CGFloat = 4 // Slightly tighter than circle spacing
+        let interWeekSpacing: CGFloat = AppSpacing.lg // 16 - good gap between weeks
+        let horizontalPadding: CGFloat = AppSpacing.md // 12
+        let verticalPadding: CGFloat = AppSpacing.xs // 4 - reduced for better fill
+        let labelHeight: CGFloat = 22
+        
+        // Calculate week column width based on circle size and spacing
+        // (7 circles * 16) + (6 gaps * 5) = 112 + 30 = 142
+        let calculatedWidth = (CGFloat(7) * circleSize) + (CGFloat(6) * circleSpacing)
+        let weekColumnWidth = max(calculatedWidth, 150) // Minimum 150 for comfortable spacing
+        
+        return WeekLayout(
+            circleSize: circleSize,
+            circleSpacing: circleSpacing,
+            rowSpacing: rowSpacing,
+            interWeekSpacing: interWeekSpacing,
+            horizontalPadding: horizontalPadding,
+            verticalPadding: verticalPadding,
+            weekColumnWidth: weekColumnWidth,
+            labelHeight: labelHeight
+        )
+    }
+    
+    // Get the last 5 week starts (Sunday-based, oldest to newest)
+    private var weekStarts: [Date] {
+        let weekStarts = DateUtils.lastNWeekStarts(5)
+        
+        #if DEBUG
+        print("📅 FiveWeekProgressView: Week starts: \(weekStarts.map { DateUtils.logString(for: $0) }.joined(separator: ", "))")
+        // Verify each week has 7 days
+        for weekStart in weekStarts {
+            let days = DateUtils.daysInWeek(containing: weekStart)
+            if days.count != 7 {
+                print("⚠️ FiveWeekProgressView: Expected 7 days, got \(days.count) for week starting \(DateUtils.logString(for: weekStart))")
+            } else {
+                print("✅ FiveWeekProgressView: Week starting \(DateUtils.logString(for: weekStart)) has \(days.count) days")
+            }
+        }
+        #endif
+        
+        return weekStarts
+    }
+    
+    private func weekStartLabel(for weekStart: Date) -> String {
         let formatter = DateFormatter()
-        let weekEnd = Calendar.current.date(byAdding: .day, value: 6, to: weekStart)!
-        
-        // If same month, show "MMM d-d", else "MMM d"
-        if Calendar.current.isDate(weekStart, equalTo: weekEnd, toGranularity: .month) {
-            formatter.dateFormat = "d"
-            let endDay = formatter.string(from: weekEnd)
-            formatter.dateFormat = "MMM d"
-            let start = formatter.string(from: weekStart)
-            return "\(start)-\(endDay)"
-        } else {
-            // Just show the start date for simplicity
-            formatter.dateFormat = "MMM d"
-            return formatter.string(from: weekStart)
-        }
+        formatter.dateFormat = "MMM d"
+        formatter.timeZone = TimeZone.current
+        return formatter.string(from: weekStart)
+    }
+    
+    // Get all 7 days of the week (Sunday through Saturday)
+    private func daysInWeek(containing weekStart: Date) -> [Date] {
+        return DateUtils.daysInWeek(containing: weekStart)
     }
     
     // Calculate dominant status for a week and prayer type
@@ -425,16 +452,146 @@ struct FiveWeekProgressView: View {
     }
     
     private func statusColor(_ status: PrayerStatus) -> Color {
-        switch status {
-        case .none: return .gray.opacity(0.2)
-        case .onTime: return .green
-        case .late: return .orange
-        case .missed: return .gray.opacity(0.5)
-        case .qada: return .blue
-        case .prayedAtMasjid: return .purple
-        case .prayedAtHome: return .mint
-        case .menstrual: return .red.opacity(0.7)
+        // Use centralized color mapping for consistency
+        return PrayerStatusColors.color(for: status)
+    }
+}
+
+// MARK: - Helper Views for Week Grid
+
+struct WeekColumn: View {
+    let weekStart: Date
+    let weekDays: [Date]
+    let prayerLogs: [PrayerLog]
+    let todayPrayers: PrayerDay?
+    let todayDayId: String
+    let layout: FiveWeekProgressView.WeekLayout
+    
+    var body: some View {
+        VStack(spacing: 6) {
+            // Week start date label
+            Text(weekStartLabel(for: weekStart))
+                .font(AppTypography.captionBold)
+                .foregroundColor(.primary)
+                .frame(height: layout.labelHeight)
+            
+            // 35 circles: 7 days x 5 prayers
+            VStack(spacing: layout.rowSpacing) {
+                // 5 rows (prayers)
+                ForEach(PrayerType.allCases, id: \.self) { prayer in
+                    PrayerWeekRow(
+                        weekDays: weekDays,
+                        weekStart: weekStart,
+                        prayer: prayer,
+                        prayerLogs: prayerLogs,
+                        todayPrayers: todayPrayers,
+                        todayDayId: todayDayId,
+                        layout: layout
+                    )
+                }
+            }
         }
+        .frame(width: layout.weekColumnWidth)
+    }
+    
+    private func weekStartLabel(for weekStart: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        formatter.timeZone = TimeZone.current
+        return formatter.string(from: weekStart)
+    }
+}
+
+struct PrayerWeekRow: View {
+    let weekDays: [Date]
+    let weekStart: Date
+    let prayer: PrayerType
+    let prayerLogs: [PrayerLog]
+    let todayPrayers: PrayerDay?
+    let todayDayId: String
+    let layout: FiveWeekProgressView.WeekLayout
+    
+    var body: some View {
+        HStack(spacing: layout.circleSpacing) {
+            // 7 columns (days)
+            ForEach(Array(weekDays.enumerated()), id: \.offset) { dayIndex, day in
+                PrayerDayCircle(
+                    day: day,
+                    dayIndex: dayIndex,
+                    prayer: prayer,
+                    weekStart: weekStart,
+                    prayerLogs: prayerLogs,
+                    todayPrayers: todayPrayers,
+                    todayDayId: todayDayId,
+                    layout: layout
+                )
+            }
+        }
+    }
+}
+
+struct PrayerDayCircle: View {
+    let day: Date
+    let dayIndex: Int
+    let prayer: PrayerType
+    let weekStart: Date
+    let prayerLogs: [PrayerLog]
+    let todayPrayers: PrayerDay?
+    let todayDayId: String
+    let layout: FiveWeekProgressView.WeekLayout
+    
+    private var dayId: String {
+        DateUtils.dayId(for: day)
+    }
+    
+    private var isToday: Bool {
+        dayId == todayDayId
+    }
+    
+    private var status: PrayerStatus {
+        if isToday, let today = todayPrayers {
+            return today.status(for: prayer)
+        } else {
+            let log = prayerLogs.first(where: { log in
+                let logDayId = DateUtils.dayId(for: log.date)
+                let logWeekStart = DateUtils.weekStart(for: log.date)
+                return logDayId == dayId && 
+                       log.prayerType == prayer &&
+                       logWeekStart == weekStart
+            })
+            return log?.status ?? .none
+        }
+    }
+    
+    private var circleColor: Color {
+        PrayerStatusColors.color(for: status)
+    }
+    
+    private var circleSize: CGFloat {
+        isToday ? layout.circleSize * 1.15 : layout.circleSize
+    }
+    
+    var body: some View {
+        Circle()
+            .fill(circleColor)
+            .frame(width: circleSize, height: circleSize)
+            .overlay(
+                Circle()
+                    .stroke(
+                        isToday ? circleColor.opacity(0.8) : Color(.separator).opacity(0.2),
+                        lineWidth: isToday ? 2 : 0.5
+                    )
+            )
+            .shadow(
+                color: isToday ? circleColor.opacity(0.7) : Color.clear,
+                radius: isToday ? 5 : 0,
+                x: 0,
+                y: isToday ? 2 : 0
+            )
+            .scaleEffect(isToday ? 1.1 : 1.0)
+            .animation(.easeInOut(duration: 0.2), value: status)
+            .animation(.easeInOut(duration: 0.2), value: isToday)
+            .id("\(prayer.rawValue)-\(dayIndex)")
     }
 }
 

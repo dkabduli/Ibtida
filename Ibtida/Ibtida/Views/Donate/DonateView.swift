@@ -52,7 +52,7 @@ struct DonateView: View {
                     .tabViewStyle(.page(indexDisplayMode: .never))
                 }
             }
-            .navigationTitle("Donate")
+            .navigationTitle("Support a Cause")
             .navigationBarTitleDisplayMode(.large)
             .onAppear {
                 Task {
@@ -419,7 +419,7 @@ struct DonateView: View {
                     EmptyStateView(
                         icon: "doc.text",
                         title: "No Receipts",
-                        message: "Donation receipts will appear here after you donate"
+                        message: "Receipts for your charitable support will appear here"
                     )
                     .padding(.top, AppSpacing.xxxl)
                 } else {

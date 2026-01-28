@@ -314,21 +314,12 @@ struct DonationsPage: View {
     }
     
     private var emptyRequestsView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "hand.raised")
-                .font(.system(size: 44))
-                .foregroundColor(Color.warmSecondaryText(colorScheme).opacity(0.4))
-            
-            Text("No Requests Yet")
-                .font(.system(size: 18, weight: .semibold, design: .rounded))
-                .foregroundColor(Color.warmText(colorScheme))
-            
-            Text("Community members can request help here. Create the first request!")
-                .font(.system(size: 15))
-                .foregroundColor(Color.warmSecondaryText(colorScheme))
-                .multilineTextAlignment(.center)
-        }
-        .padding(40)
+        EmptyRequestsView(
+            onCreateRequest: {
+                HapticFeedback.medium()
+                showCreateRequest = true
+            }
+        )
         .warmCard(elevation: .medium)
     }
     

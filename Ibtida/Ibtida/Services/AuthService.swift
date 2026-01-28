@@ -100,6 +100,8 @@ class AuthService: ObservableObject {
                     if firebaseUser == nil {
                         // User logged out
                         LocalStorageService.shared.resetForLogout()
+                        // Clear performance cache
+                        PerformanceCache.shared.clearAll()
                     }
                 }
                 
@@ -341,6 +343,9 @@ class AuthService: ObservableObject {
             
             // Clear local storage
             LocalStorageService.shared.resetForLogout()
+            
+            // Clear performance cache
+            PerformanceCache.shared.clearAll()
             
             // Sign out from Firebase
             try Auth.auth().signOut()

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import CoreHaptics
 
 // MARK: - Spacing
 
@@ -46,20 +47,86 @@ extension Color {
 // MARK: - Haptic Feedback
 
 struct HapticFeedback {
+    /// Check if device supports haptics (prevents Simulator warnings)
+    private static var supportsHaptics: Bool {
+        // Check if running on Simulator
+        #if targetEnvironment(simulator)
+        return false
+        #else
+        // Check hardware support on real device
+        if #available(iOS 13.0, *) {
+            return CHHapticEngine.capabilitiesForHardware().supportsHaptics
+        } else {
+            // Fallback for older iOS versions
+            return true
+        }
+        #endif
+    }
+    
+    /// Check if device is in silent mode
+    /// Respects silent mode for masjid and late hours
+    private static var isSilentMode: Bool {
+        // Check if device is in silent mode (ringer off)
+        // iOS doesn't provide direct API, but we can check audio session
+        // For now, we'll be conservative and respect quiet hours (after Isha)
+        let hour = Calendar.current.component(.hour, from: Date())
+        // After 9 PM (21:00) or before 5 AM (5:00) - quiet hours
+        return hour >= 21 || hour < 5
+    }
+    
+    /// Respect silent mode and hardware support - only provide haptics if supported and not silent
+    private static func shouldProvideHaptic() -> Bool {
+        return supportsHaptics && !isSilentMode
+    }
+    
     static func light() {
+        guard shouldProvideHaptic() else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
     
+    static func soft() {
+        guard shouldProvideHaptic() else { return }
+        // Very light haptic for late prayers
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.prepare()
+        generator.impactOccurred(intensity: 0.5)
+    }
+    
     static func medium() {
+        guard shouldProvideHaptic() else { return }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
     
     static func success() {
+        guard shouldProvideHaptic() else { return }
         UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
     
     static func error() {
+        guard shouldProvideHaptic() else { return }
         UINotificationFeedbackGenerator().notificationOccurred(.error)
+    }
+    
+    /// Status-specific haptic for prayer logging
+    static func forPrayerStatus(_ status: PrayerStatus) {
+        switch status {
+        case .onTime:
+            light() // Gentle for on-time
+        case .late:
+            soft() // Softer for late
+        case .qada:
+            light() // Gentle for make-up
+        case .missed:
+            // No haptic for missed - avoid negative reinforcement
+            break
+        case .prayedAtMasjid, .prayedAtHome:
+            light() // Gentle for location-based
+        case .menstrual:
+            // No haptic for menstrual - neutral
+            break
+        case .none:
+            break
+        }
     }
 }
 

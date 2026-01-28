@@ -332,7 +332,7 @@ struct PremiumCharityCard: View {
             }) {
                 HStack(spacing: AppSpacing.sm) {
                     Image(systemName: "heart.fill")
-                    Text("Donate")
+                    Text("Support This Need")
                     Spacer()
                     Image(systemName: "arrow.up.right")
                 }

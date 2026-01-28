@@ -66,31 +66,13 @@ struct RequestsView: View {
     // MARK: - Empty State
     
     private var emptyStateView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "hand.raised.fill")
-                .font(.system(size: 48))
-                .foregroundColor(.secondary.opacity(0.5))
-            
-            Text("No Requests")
-                .font(.headline)
-            
-            Text("Create a request to ask the community for support")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-            
-            Button(action: { showCreateRequest = true }) {
-                Label("Create Request", systemImage: "plus")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 12)
-                    .background(Color.accentColor)
-                    .cornerRadius(12)
+        EmptyRequestsView(
+            onCreateRequest: {
+                HapticFeedback.medium()
+                showCreateRequest = true
             }
-        }
-        .padding(40)
+        )
+        .warmCard(elevation: .medium)
     }
     
     // MARK: - Requests List

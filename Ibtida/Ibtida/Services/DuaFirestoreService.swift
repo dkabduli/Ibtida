@@ -26,15 +26,34 @@ class DuaFirestoreService {
         #endif
     }
     
-    // MARK: - Load Duas (GLOBAL)
+    // MARK: - Load Duas (GLOBAL) - Time-bounded to today or last 24 hours
+    // TODO: PRODUCTION BACKEND CLEANUP
+    // For production, implement one of the following:
+    // Option 1: Cloud Function scheduled cleanup (recommended)
+    //   - Schedule a Cloud Function to run daily at 1:00 AM UTC
+    //   - Delete all duas where createdAt < now - 24 hours
+    //   - Example: https://firebase.google.com/docs/functions/schedule-functions
+    // Option 2: Firestore TTL Policy (if available)
+    //   - Set TTL field on dua documents
+    //   - Firestore will automatically delete expired documents
+    //   - See: https://firebase.google.com/docs/firestore/ttl
+    // Current implementation: Client-side query filters to last 24h only
     
     func loadDuas(limit: Int = 100) async throws -> [Dua] {
         #if DEBUG
-        print("📖 DuaFirestoreService: Loading duas from GLOBAL collection: \(duasCollection)")
+        print("📖 DuaFirestoreService: Loading duas from GLOBAL collection (time-bounded)")
         #endif
         
         do {
+            // Only load duas from today or last 24 hours
+            let calendar = Calendar.current
+            let now = Date()
+            let startOfToday = calendar.startOfDay(for: now)
+            let yesterday = calendar.date(byAdding: .day, value: -1, to: startOfToday)!
+            
+            // Query duas created today or in last 24 hours
             let snapshot = try await db.collection(duasCollection)
+                .whereField("createdAt", isGreaterThan: Timestamp(date: yesterday))
                 .order(by: "createdAt", descending: true)
                 .limit(to: limit)
                 .getDocuments()
@@ -44,7 +63,7 @@ class DuaFirestoreService {
             }
             
             #if DEBUG
-            print("✅ DuaFirestoreService: Loaded \(duas.count) duas")
+            print("✅ DuaFirestoreService: Loaded \(duas.count) duas (time-bounded to today/last 24h)")
             #endif
             
             return duas
@@ -57,40 +76,52 @@ class DuaFirestoreService {
         }
     }
     
-    // MARK: - Load Daily Dua (GLOBAL)
+    // MARK: - Load Daily Dua (GLOBAL) - Auto-selects at 2 AM if missing
     
     func loadDailyDua(for date: Date) async throws -> Dua? {
         let dateString = formatDate(date)
+        let calendar = Calendar.current
+        let now = Date()
+        let hour = calendar.component(.hour, from: now)
         
         #if DEBUG
-        print("📖 DuaFirestoreService: Loading daily dua for \(dateString)")
+        print("📖 DuaFirestoreService: Loading daily dua for \(dateString) (current hour: \(hour))")
         #endif
         
         do {
+            // Check if daily dua exists for today
             let doc = try await db.collection(dailyDuasCollection).document(dateString).getDocument()
             
-            guard doc.exists, let data = doc.data(), let duaId = data["duaId"] as? String else {
+            if doc.exists, let data = doc.data(), let duaId = data["duaId"] as? String {
+                // Daily dua already exists, load it
+                let duaDoc = try await db.collection(duasCollection).document(duaId).getDocument()
+                
+                guard let dua = parseDuaDocument(duaDoc) else {
+                    #if DEBUG
+                    print("⚠️ DuaFirestoreService: Daily dua document not found: \(duaId)")
+                    #endif
+                    return nil
+                }
+                
                 #if DEBUG
-                print("📖 DuaFirestoreService: No daily dua found for \(dateString)")
+                print("✅ DuaFirestoreService: Loaded existing daily dua - ID: \(dua.id)")
                 #endif
-                return nil
+                
+                return dua
+            } else {
+                // Daily dua doesn't exist - select one if it's after 2 AM
+                if hour >= 2 {
+                    #if DEBUG
+                    print("📖 DuaFirestoreService: No daily dua found, selecting new one (after 2 AM)")
+                    #endif
+                    return try await selectAndSaveDailyDua(for: date)
+                } else {
+                    #if DEBUG
+                    print("📖 DuaFirestoreService: No daily dua found, but it's before 2 AM - will select later")
+                    #endif
+                    return nil
+                }
             }
-            
-            // Load the actual dua
-            let duaDoc = try await db.collection(duasCollection).document(duaId).getDocument()
-            
-            guard let dua = parseDuaDocument(duaDoc) else {
-                #if DEBUG
-                print("⚠️ DuaFirestoreService: Daily dua document not found: \(duaId)")
-                #endif
-                return nil
-            }
-            
-            #if DEBUG
-            print("✅ DuaFirestoreService: Loaded daily dua - ID: \(dua.id)")
-            #endif
-            
-            return dua
             
         } catch {
             #if DEBUG
@@ -98,6 +129,37 @@ class DuaFirestoreService {
             #endif
             throw error
         }
+    }
+    
+    // MARK: - Select and Save Daily Dua (Random selection)
+    
+    private func selectAndSaveDailyDua(for date: Date) async throws -> Dua {
+        let dateString = formatDate(date)
+        
+        // Load all available duas (from today or last 24 hours)
+        let allDuas = try await loadDuas(limit: 1000)
+        
+        guard !allDuas.isEmpty else {
+            throw FirestoreError.writeFailed("No duas available to select as daily dua")
+        }
+        
+        // Randomly select one
+        let selectedDua = allDuas.randomElement()!
+        
+        // Save to daily_duas collection
+        let data: [String: Any] = [
+            "duaId": selectedDua.id,
+            "selectedAt": Timestamp(date: Date()),
+            "expiresAt": Timestamp(date: Calendar.current.date(byAdding: .day, value: 1, to: date)!)
+        ]
+        
+        try await db.collection(dailyDuasCollection).document(dateString).setData(data, merge: false)
+        
+        #if DEBUG
+        print("✅ DuaFirestoreService: Selected and saved daily dua - \(dateString): \(selectedDua.id)")
+        #endif
+        
+        return selectedDua
     }
     
     // MARK: - Save Daily Dua Selection
@@ -124,6 +186,7 @@ class DuaFirestoreService {
             throw FirestoreError.userNotAuthenticated
         }
         
+        // Always use serverTimestamp for createdAt to ensure consistency
         let data: [String: Any] = [
             "text": dua.text,
             "authorId": dua.authorId ?? "",
@@ -132,7 +195,7 @@ class DuaFirestoreService {
             "ameenCount": dua.ameenCount,
             "ameenBy": dua.ameenBy,
             "tags": dua.tags,
-            "createdAt": Timestamp(date: dua.createdAt)
+            "createdAt": FieldValue.serverTimestamp() // Always use server timestamp
         ]
         
         try await db.collection(duasCollection).document(dua.id).setData(data, merge: true)

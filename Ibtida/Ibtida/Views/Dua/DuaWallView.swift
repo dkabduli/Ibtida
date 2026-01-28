@@ -37,6 +37,10 @@ struct DuaWallView: View {
             }
             .onAppear { handleOnAppear() }
             .refreshable { await refreshData() }
+            .onChange(of: Calendar.current.component(.day, from: Date())) { _ in
+                // Detect date change (midnight reset)
+                handleDateChange()
+            }
         }
     }
     
@@ -53,15 +57,13 @@ struct DuaWallView: View {
     private var mainContent: some View {
         ScrollView {
             LazyVStack(spacing: 16) {
-                // Error banner (if any)
+                // Network status banner (non-blocking)
                 if let error = viewModel.errorMessage {
-                    ErrorBanner(
+                    NetworkStatusBanner(
                         message: error,
+                        isRetrying: viewModel.isRetrying,
                         onRetry: {
                             viewModel.retry()
-                        },
-                        onDismiss: {
-                            viewModel.errorMessage = nil
                         }
                     )
                     .padding(.horizontal, 16)
@@ -159,103 +161,30 @@ struct DuaWallView: View {
     @ViewBuilder
     private var emptyStateView: some View {
         if viewModel.selectedFilter == .myDuas {
-            // My Duas empty state
-            VStack(spacing: 20) {
-                ZStack {
-                    Circle()
-                        .fill(Color.mutedGold.opacity(0.15))
-                        .frame(width: 80, height: 80)
-                    
-                    Image(systemName: "person.crop.circle")
-                        .font(.system(size: 36))
-                        .foregroundColor(.mutedGold)
-                }
-                
-                VStack(spacing: 8) {
-                    Text("No Duas Yet")
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
-                        .foregroundColor(Color.warmText(colorScheme))
-                    
-                    Text("You haven't submitted any duas yet. Share your first dua with the community.")
-                        .font(.system(size: 15))
-                        .foregroundColor(Color.warmSecondaryText(colorScheme))
-                        .multilineTextAlignment(.center)
-                }
-                
-                Button(action: {
+            GenericEmptyStateView(
+                icon: "person.crop.circle",
+                title: "No Duas Yet",
+                message: "You haven't submitted any duas yet. Share your first dua with the community.",
+                actionTitle: "Submit Your First Dua",
+                action: {
                     HapticFeedback.medium()
                     showSubmitDua = true
-                }) {
-                    Label("Submit Your First Dua", systemImage: "plus")
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 28)
-                        .padding(.vertical, 14)
-                        .background(LinearGradient.goldAccent)
-                        .cornerRadius(12)
                 }
-                .buttonStyle(WarmButtonStyle(style: .primary))
-            }
-            .padding(40)
+            )
             .warmCard(elevation: .medium)
         } else {
-            // General empty state
-            VStack(spacing: 20) {
-                ZStack {
-                    Circle()
-                        .fill(Color.mutedGold.opacity(0.15))
-                        .frame(width: 80, height: 80)
-                    
-                    Image(systemName: "hands.sparkles")
-                        .font(.system(size: 36))
-                        .foregroundColor(.mutedGold)
-                }
-                
-                VStack(spacing: 8) {
-                    Text(viewModel.selectedFilter == .all ? "No Duas Yet" : "No Duas Found")
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
-                        .foregroundColor(Color.warmText(colorScheme))
-                    
-                    Text(viewModel.selectedFilter == .all 
-                         ? "Be the first to share a dua with the community"
-                         : "Try adjusting your filters or check back later")
-                        .font(.system(size: 15))
-                        .foregroundColor(Color.warmSecondaryText(colorScheme))
-                        .multilineTextAlignment(.center)
-                }
-                
-                if viewModel.selectedFilter == .all {
-                    Button(action: {
-                        HapticFeedback.medium()
-                        showSubmitDua = true
-                    }) {
-                        Label("Submit Dua", systemImage: "plus")
-                            .font(.system(size: 16, weight: .semibold, design: .rounded))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 28)
-                            .padding(.vertical, 14)
-                            .background(LinearGradient.goldAccent)
-                            .cornerRadius(12)
-                    }
-                    .buttonStyle(WarmButtonStyle(style: .primary))
-                } else {
-                    Button(action: {
-                        HapticFeedback.light()
-                        viewModel.clearFilters()
-                    }) {
-                        Text("Clear Filters")
-                            .font(.system(size: 15, weight: .semibold, design: .rounded))
-                            .foregroundColor(.mutedGold)
-                            .padding(.horizontal, 24)
-                            .padding(.vertical, 12)
-                            .background(
-                                Capsule()
-                                    .strokeBorder(Color.mutedGold, lineWidth: 1.5)
-                            )
-                    }
-                }
-            }
-            .padding(40)
+            GenericEmptyStateView(
+                icon: "hands.sparkles",
+                title: viewModel.selectedFilter == .all ? "No Duas Yet" : "No Duas Found",
+                message: viewModel.selectedFilter == .all 
+                    ? "Be the first to share a dua with the community"
+                    : "Try adjusting your filters or check back later",
+                actionTitle: viewModel.selectedFilter == .all ? "Submit Dua" : nil,
+                action: viewModel.selectedFilter == .all ? {
+                    HapticFeedback.medium()
+                    showSubmitDua = true
+                } : nil
+            )
             .warmCard(elevation: .medium)
         }
     }
@@ -321,6 +250,20 @@ struct DuaWallView: View {
         guard AuthService.shared.isLoggedIn else { return }
         await viewModel.loadDuas()
         await viewModel.loadDailyDua()
+    }
+    
+    private func handleDateChange() {
+        // Date changed (midnight reset) - reload duas and daily dua
+        #if DEBUG
+        print("🔄 DuaWallView: Date changed, reloading duas")
+        #endif
+        Task {
+            await viewModel.loadDuas()
+            await viewModel.loadDailyDua()
+            // Reset dismissal state for new day
+            isDailyDuaDismissed = false
+            await checkDailyDuaDismissal()
+        }
     }
     
     private func checkDailyDuaDismissal() {

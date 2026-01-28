@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import SwiftUI
 
 // MARK: - Prayer Day Model (Firestore document)
 
@@ -99,16 +100,30 @@ struct PrayerDay: Codable, Identifiable {
         return fajr.xpValue + dhuhr.xpValue + asr.xpValue + maghrib.xpValue + isha.xpValue
     }
     
-    /// Create today's prayer day
+    /// Create today's prayer day (timezone-aware)
     static func today() -> PrayerDay {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        return PrayerDay(dateString: formatter.string(from: Date()), date: Date())
+        let dayId = DateUtils.dayId()
+        return PrayerDay(dateString: dayId, date: Date())
     }
     
     /// Check if this day should count toward streak
     /// Menstrual days are excluded from streak calculation
     var shouldCountForStreak: Bool {
         !isMenstrualDay
+    }
+    
+    /// Get summary status for the day (for consistent color mapping)
+    var summaryStatus: PrayerStatusColors.SummaryStatus {
+        PrayerStatusColors.summaryStatus(for: self)
+    }
+    
+    /// Get summary color for the day (matches Today's Salah theme)
+    var summaryColor: Color {
+        PrayerStatusColors.summaryColor(for: self)
+    }
+    
+    /// Get all statuses for the day
+    var allStatuses: [PrayerStatus] {
+        [fajrStatus, dhuhrStatus, asrStatus, maghribStatus, ishaStatus]
     }
 }

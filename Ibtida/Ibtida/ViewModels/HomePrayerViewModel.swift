@@ -46,17 +46,18 @@ class HomePrayerViewModel: ObservableObject {
     }
     
     var todayDateString: String {
-        FirestorePaths.dateString(from: Date())
+        DateUtils.dayId()
     }
+    
+    // Track last loaded dayId to detect day changes
+    private var lastLoadedDayId: String = ""
     
     // MARK: - Initialization
     
     init() {
         self.todayPrayers = PrayerDay.today()
         
-        #if DEBUG
-        print("✅ HomePrayerViewModel initialized")
-        #endif
+        AppLog.verbose("HomePrayerViewModel initialized")
     }
     
     // MARK: - Load Today's Prayers
@@ -66,16 +67,21 @@ class HomePrayerViewModel: ObservableObject {
         loadTask?.cancel()
         
         guard let uid = currentUID else {
-            #if DEBUG
-            print("⚠️ HomePrayerViewModel: User not authenticated")
-            #endif
+            AppLog.error("User not authenticated")
             return
         }
         
+        // Check if day has changed (timezone-aware)
+        let currentDayId = DateUtils.dayId()
+        if lastLoadedDayId != currentDayId && !lastLoadedDayId.isEmpty {
+            // Day changed - reset state and force reload
+            hasLoadedToday = false
+            self.todayPrayers = PrayerDay.today()
+            AppLog.state("Day changed, resetting and reloading")
+        }
+        
         guard !hasLoadedToday else {
-            #if DEBUG
-            print("⏭️ HomePrayerViewModel: Already loaded today, skipping")
-            #endif
+            AppLog.verbose("Already loaded today (\(currentDayId)), skipping")
             return
         }
         
@@ -96,9 +102,30 @@ class HomePrayerViewModel: ObservableObject {
         
         let dateString = todayDateString
         
-        #if DEBUG
-        print("📖 HomePrayerViewModel: Loading prayers for \(dateString) - UID: \(uid)")
-        #endif
+        // Check if day has changed (timezone-aware day boundary)
+        if lastLoadedDayId != dateString && !lastLoadedDayId.isEmpty {
+            AppLog.state("Day changed from \(lastLoadedDayId) to \(dateString) - resetting state")
+            // Reset state for new day
+            self.todayPrayers = PrayerDay.today()
+            self.hasLoadedToday = false
+            // Clear day-specific cache
+            PerformanceCache.shared.clearForDayChange()
+        }
+        lastLoadedDayId = dateString
+        
+        // Check cache first
+        if let cached = PerformanceCache.shared.getTodayPrayerDay(dayId: dateString) {
+            AppLog.verbose("Using cached prayer day for \(dateString)")
+            self.todayPrayers = cached
+            self.hasLoadedToday = true
+            // Still load user totals and weeks
+            await loadUserTotals(uid: uid)
+            await loadLast5Weeks(uid: uid)
+            isLoading = false
+            return
+        }
+        
+        AppLog.network("Loading prayers for dayId: \(dateString) (timezone: \(DateUtils.userTimezone))")
         
         do {
             // Load today's prayer day
@@ -111,17 +138,16 @@ class HomePrayerViewModel: ObservableObject {
             if prayerDayDoc.exists, let data = prayerDayDoc.data() {
                 todayPrayers = parsePrayerDay(data: data, dateString: dateString)
                 
-                #if DEBUG
-                print("✅ HomePrayerViewModel: Loaded existing prayer day - Credits: \(todayPrayers.totalCreditsForDay)")
-                #endif
+                AppLog.network("Loaded existing prayer day - Credits: \(todayPrayers.totalCreditsForDay)")
             } else {
                 // Create new prayer day for today
                 todayPrayers = PrayerDay.today()
                 
-                #if DEBUG
-                print("📝 HomePrayerViewModel: No existing prayer day, using default")
-                #endif
+                AppLog.verbose("No existing prayer day, using default")
             }
+            
+            // Cache the loaded prayer day
+            PerformanceCache.shared.setTodayPrayerDay(dayId: dateString, prayerDay: todayPrayers)
             
             // Load user totals
             await loadUserTotals(uid: uid)
@@ -138,22 +164,14 @@ class HomePrayerViewModel: ObservableObject {
                 return
             }
             
-            // Provide user-friendly error message
-            if let firestoreError = error as NSError? {
-                if firestoreError.domain == "FIRFirestoreErrorDomain" {
-                    switch firestoreError.code {
-                    case 14: // UNAVAILABLE
-                        errorMessage = "Unable to connect. Please check your internet connection."
-                    case 4: // DEADLINE_EXCEEDED
-                        errorMessage = "Request timed out. Please try again."
-                    default:
-                        errorMessage = "Failed to load prayers. Please try again."
-                    }
-                } else {
-                    errorMessage = "Failed to load prayers: \(error.localizedDescription)"
-                }
-            } else {
-                errorMessage = "Failed to load prayers. Please try again."
+            // Use centralized network error handling
+            errorMessage = NetworkErrorHandler.userFriendlyMessage(for: error)
+            
+            AppLog.error("Error loading today's prayers - \(error.localizedDescription)")
+            
+            // Don't block UI on network errors - allow empty state
+            if !NetworkErrorHandler.isNetworkError(error) {
+                // Non-network errors are shown immediately
             }
             
             #if DEBUG
@@ -237,8 +255,26 @@ class HomePrayerViewModel: ObservableObject {
         let oldCredits = todayPrayers.totalCreditsForDay
         let oldTotalCredits = totalCredits
         
-        // Optimistic update
+        // Optimistic update - ensure we're using today's timezone-aware dayId
         var newPrayerDay = todayPrayers
+        // Update dateString to ensure it matches current dayId (timezone-aware)
+        let currentDayId = DateUtils.dayId()
+        if newPrayerDay.dateString != currentDayId {
+            #if DEBUG
+            print("⚠️ HomePrayerViewModel: DayId mismatch - updating from \(newPrayerDay.dateString) to \(currentDayId)")
+            #endif
+            // Create new PrayerDay with correct dayId, preserving existing statuses
+            newPrayerDay = PrayerDay(
+                dateString: currentDayId,
+                date: Date(),
+                fajrStatus: todayPrayers.fajrStatus,
+                dhuhrStatus: todayPrayers.dhuhrStatus,
+                asrStatus: todayPrayers.asrStatus,
+                maghribStatus: todayPrayers.maghribStatus,
+                ishaStatus: todayPrayers.ishaStatus,
+                isMenstrualDay: todayPrayers.isMenstrualDay
+            )
+        }
         newPrayerDay.setStatus(status, for: prayer)
         newPrayerDay.isMenstrualDay = isMenstrualDay // Mark as menstrual day if mode is enabled
         let newCredits = newPrayerDay.totalCreditsForDay
@@ -247,8 +283,11 @@ class HomePrayerViewModel: ObservableObject {
         todayPrayers = newPrayerDay
         totalCredits += creditDelta
         
-        // Haptic feedback for optimistic update
-        HapticFeedback.light()
+        // Update cache immediately
+        PerformanceCache.shared.setTodayPrayerDay(dayId: currentDayId, prayerDay: newPrayerDay)
+        
+        // Status-specific haptic feedback (respects silent mode)
+        HapticFeedback.forPrayerStatus(status)
         
         // Persist to Firestore with transaction
         do {
@@ -260,32 +299,15 @@ class HomePrayerViewModel: ObservableObject {
             
             HapticFeedback.success()
             
-            #if DEBUG
-            print("✅ HomePrayerViewModel: Saved prayer status - Delta: \(creditDelta), Menstrual: \(isMenstrualDay)")
-            #endif
+            AppLog.network("Saved prayer status - Delta: \(creditDelta), Menstrual: \(isMenstrualDay)")
             
         } catch {
             // Rollback on error
             todayPrayers.setStatus(oldStatus, for: prayer)
             totalCredits = oldTotalCredits
             
-            // Provide user-friendly error message
-            if let firestoreError = error as NSError? {
-                if firestoreError.domain == "FIRFirestoreErrorDomain" {
-                    switch firestoreError.code {
-                    case 14: // UNAVAILABLE
-                        errorMessage = "Unable to save. Please check your internet connection."
-                    case 4: // DEADLINE_EXCEEDED
-                        errorMessage = "Request timed out. Please try again."
-                    default:
-                        errorMessage = "Failed to save prayer status. Please try again."
-                    }
-                } else {
-                    errorMessage = "Failed to save: \(error.localizedDescription)"
-                }
-            } else {
-                errorMessage = "Failed to save prayer status. Please try again."
-            }
+            // Use gentle language for spiritual actions
+            errorMessage = GentleLanguage.errorMessageForSpiritualAction(error)
             
             HapticFeedback.error()
             
@@ -304,11 +326,22 @@ class HomePrayerViewModel: ObservableObject {
         prayerDay: PrayerDay,
         creditDelta: Int
     ) async throws {
-        let userRef = db.collection(FirestorePaths.users).document(uid)
-        let prayerDayRef = userRef.collection(FirestorePaths.prayerDays).document(prayerDay.dateString)
+        // Ensure we're using timezone-aware dayId
+        let dayId = DateUtils.dayId(for: prayerDay.date)
         
+        #if DEBUG
+        print("💾 HomePrayerViewModel: Saving prayer day with dayId: \(dayId) (timezone: \(DateUtils.userTimezone))")
+        print("   📅 Date: \(DateUtils.logString(for: prayerDay.date))")
+        print("   📅 Week start: \(DateUtils.logString(for: DateUtils.weekStart(for: prayerDay.date)))")
+        #endif
+        
+        let userRef = db.collection(FirestorePaths.users).document(uid)
+        let prayerDayRef = userRef.collection(FirestorePaths.prayerDays).document(dayId)
+        
+        // Use timezone-aware dayId consistently - NO DUPLICATE KEYS
         var prayerDayData: [String: Any] = [
-            "dateString": prayerDay.dateString,
+            "dayId": dayId, // Store dayId for reference
+            "dateString": dayId, // Primary date identifier (timezone-aware)
             "date": Timestamp(date: prayerDay.date),
             "fajrStatus": prayerDay.fajrStatus.rawValue,
             "dhuhrStatus": prayerDay.dhuhrStatus.rawValue,
@@ -355,63 +388,74 @@ class HomePrayerViewModel: ObservableObject {
     // MARK: - Parse Prayer Day
     
     private func parsePrayerDay(data: [String: Any], dateString: String) -> PrayerDay {
+        // Defensive parsing with safe fallbacks
         let date = (data["date"] as? Timestamp)?.dateValue() ?? Date()
         
         var prayerDay = PrayerDay(dateString: dateString, date: date)
         
-        if let fajr = data["fajrStatus"] as? String {
-            prayerDay.fajrStatus = PrayerStatus(rawValue: fajr) ?? .none
+        // Safely parse each status with fallback to .none
+        if let fajr = data["fajrStatus"] as? String, let status = PrayerStatus(rawValue: fajr) {
+            prayerDay.fajrStatus = status
         }
-        if let dhuhr = data["dhuhrStatus"] as? String {
-            prayerDay.dhuhrStatus = PrayerStatus(rawValue: dhuhr) ?? .none
+        if let dhuhr = data["dhuhrStatus"] as? String, let status = PrayerStatus(rawValue: dhuhr) {
+            prayerDay.dhuhrStatus = status
         }
-        if let asr = data["asrStatus"] as? String {
-            prayerDay.asrStatus = PrayerStatus(rawValue: asr) ?? .none
+        if let asr = data["asrStatus"] as? String, let status = PrayerStatus(rawValue: asr) {
+            prayerDay.asrStatus = status
         }
-        if let maghrib = data["maghribStatus"] as? String {
-            prayerDay.maghribStatus = PrayerStatus(rawValue: maghrib) ?? .none
+        if let maghrib = data["maghribStatus"] as? String, let status = PrayerStatus(rawValue: maghrib) {
+            prayerDay.maghribStatus = status
         }
-        if let isha = data["ishaStatus"] as? String {
-            prayerDay.ishaStatus = PrayerStatus(rawValue: isha) ?? .none
+        if let isha = data["ishaStatus"] as? String, let status = PrayerStatus(rawValue: isha) {
+            prayerDay.ishaStatus = status
         }
         
-        // Check for menstrual day flag
+        // Safely parse optional fields
         prayerDay.isMenstrualDay = data["isMenstrualDay"] as? Bool ?? false
         
-        prayerDay.recalculateCredits()
+        // Safely parse credits (defensive)
+        if let credits = data["totalCreditsForDay"] as? Int {
+            prayerDay.totalCreditsForDay = max(0, credits) // Ensure non-negative
+        } else {
+            prayerDay.recalculateCredits() // Recalculate if missing
+        }
         
         return prayerDay
     }
     
-    // MARK: - Load Last 5 Weeks
+    // MARK: - Load Last 5 Weeks (Sunday-based week bucketing)
     
     func loadLast5Weeks(uid: String) async {
+        // Check cache first
+        if let cached = PerformanceCache.shared.getWeeksLogs(uid: uid) {
+            AppLog.verbose("Using cached weeks logs")
+            self.prayerLogs = cached
+            return
+        }
+        
         // Always reload to get fresh data
         weeksLoadTask?.cancel()
         currentListener?.remove()
         
-        let calendar = Calendar.current
-        let now = Date()
-        let currentWeekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now))!
-        let weekStart = calendar.date(byAdding: .weekOfYear, value: -4, to: currentWeekStart)!
-        let weekEnd = calendar.date(byAdding: .day, value: 7, to: currentWeekStart)!
+        // Get date range for last 5 weeks (timezone-aware)
+        let (startDate, endDate) = DateUtils.dateRangeForLastNWeeks(5)
+        let weekStarts = DateUtils.lastNWeekStarts(5)
         
-        #if DEBUG
-        print("📖 HomePrayerViewModel: Loading last 5 weeks - Range: \(weekStart) to \(weekEnd)")
-        #endif
+        AppLog.network("Loading last 5 weeks - Date range: \(DateUtils.logString(for: startDate)) to \(DateUtils.logString(for: endDate))")
         
         weeksLoadTask = Task { [weak self] in
             guard let self = self, !Task.isCancelled else { return }
             
-            let listener = self.prayerService.loadPrayerLogs(weekStart: weekStart, weekEnd: weekEnd) { [weak self] logs in
+            let listener = self.prayerService.loadPrayerLogs(weekStart: startDate, weekEnd: endDate) { [weak self] logs in
                 Task { @MainActor [weak self] in
                     guard let self = self, !Task.isCancelled else { return }
                     self.prayerLogs = logs
                     self.hasLoadedWeeks = true
                     
-                    #if DEBUG
-                    print("✅ HomePrayerViewModel: Loaded \(logs.count) prayer logs for last 5 weeks")
-                    #endif
+                    // Cache the loaded logs
+                    PerformanceCache.shared.setWeeksLogs(uid: uid, logs: logs)
+                    
+                    AppLog.network("Loaded \(logs.count) prayer logs for last 5 weeks")
                 }
             }
             
@@ -428,6 +472,7 @@ class HomePrayerViewModel: ObservableObject {
     func refresh() {
         hasLoadedToday = false
         hasLoadedWeeks = false
+        lastLoadedDayId = "" // Force reload on next loadTodayPrayers
         errorMessage = nil
         Task {
             await loadTodayPrayers()

@@ -438,38 +438,44 @@ struct WarmBackgroundView: View {
     @StateObject private var themeManager = ThemeManager.shared
     
     var body: some View {
+        let timeOfDay = TimeAwareUI.currentTimeOfDay()
+        let warmthMultiplier = timeOfDay.warmthLevel // Morning: 1.0, Night: 0.65
+        
         Group {
             if colorScheme == .dark {
-                // Dark mode: gender-aware background
+                // Dark mode: gender-aware background (time-aware)
                 if themeManager.userGender == .sister {
-                    // Sister dark mode: dark purple gradient
-                    LinearGradient(
-                        colors: [Color.sisterDarkPurple, Color.sisterDarkPurpleSurface],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                } else {
-                    // Brother dark mode: warm dark gradient
-                    LinearGradient.warmDarkBackground
-                }
-            } else {
-                // Light mode: gender-aware background
-                if themeManager.userGender == .sister {
-                    // Sister light mode: light pink gradient
+                    // Sister dark mode: dark purple gradient (calmer at night)
                     LinearGradient(
                         colors: [
-                            Color.sisterCream,
-                            Color.sisterSand.opacity(0.6)
+                            Color.sisterDarkPurple.opacity(warmthMultiplier),
+                            Color.sisterDarkPurpleSurface.opacity(warmthMultiplier * 0.8)
                         ],
                         startPoint: .top,
                         endPoint: .bottom
                     )
                 } else {
-                    // Brother light mode: warm cream gradient
+                    // Brother dark mode: warm dark gradient (calmer at night)
+                    LinearGradient.warmDarkBackground.opacity(warmthMultiplier)
+                }
+            } else {
+                // Light mode: gender-aware background (time-aware)
+                if themeManager.userGender == .sister {
+                    // Sister light mode: light pink gradient (brighter in morning)
                     LinearGradient(
                         colors: [
-                            Color.warmBackground(colorScheme, gender: themeManager.userGender, menstrualMode: themeManager.menstrualModeEnabled),
-                            Color.warmSurface(colorScheme, gender: themeManager.userGender).opacity(0.5)
+                            Color.sisterCream.opacity(warmthMultiplier),
+                            Color.sisterSand.opacity(0.6 * warmthMultiplier)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                } else {
+                    // Brother light mode: warm cream gradient (brighter in morning)
+                    LinearGradient(
+                        colors: [
+                            Color.warmBackground(colorScheme, gender: themeManager.userGender, menstrualMode: themeManager.menstrualModeEnabled).opacity(warmthMultiplier),
+                            Color.warmSurface(colorScheme, gender: themeManager.userGender).opacity(0.5 * warmthMultiplier)
                         ],
                         startPoint: .top,
                         endPoint: .bottom
@@ -486,10 +492,17 @@ struct WarmBackgroundView: View {
 extension View {
     func accessiblePrayerButton(prayer: PrayerType, status: PrayerStatus) -> some View {
         self
-            .accessibilityLabel("\(prayer.displayName) prayer")
-            .accessibilityValue(status.displayName)
-            .accessibilityHint("Double tap to change status")
+            .accessibilityLabel("\(prayer.displayName) prayer, \(status.displayName)")
+            .accessibilityValue(status.arabicDescription)
+            .accessibilityHint("Double tap to log or change prayer status")
             .accessibilityAddTraits(.isButton)
+    }
+    
+    /// Enhanced accessibility for Arabic text
+    func accessibleArabicText(_ arabic: String, english: String) -> some View {
+        self
+            .accessibilityLabel("\(english), \(arabic)")
+            // VoiceOver will automatically detect and pronounce Arabic text correctly
     }
     
     func accessibleCard(label: String, hint: String? = nil) -> some View {

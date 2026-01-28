@@ -100,16 +100,16 @@ struct LoginView: View {
             
             // App name with Arabic calligraphy style
             VStack(spacing: 8) {
-                Text("Ibtida")
+                Text(AppStrings.appName)
                     .font(.system(size: 42, weight: .bold, design: .rounded))
                     .foregroundColor(Color.warmText(colorScheme))
                 
-                Text("ابدأ")
+                Text(AppStrings.appNameArabic)
                     .font(.system(size: 24, weight: .medium, design: .serif))
                     .foregroundColor(Color.mutedGold)
                     .environment(\.layoutDirection, .rightToLeft)
                 
-                Text(isSignUp ? "Begin your journey" : "Welcome back, traveler")
+                Text(isSignUp ? AppStrings.beginYourJourney : AppStrings.welcomeBack)
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(Color.warmSecondaryText(colorScheme))
             }

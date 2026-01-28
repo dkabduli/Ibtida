@@ -58,28 +58,12 @@ struct DailyDuaCard: View {
             
             // Actions
             HStack {
-                // Ameen button
-                Button(action: {
-                    HapticFeedback.medium()
-                    onAmeen()
-                }) {
-                    HStack(spacing: 8) {
-                        Image(systemName: hasUserSaidAmeen ? "hands.sparkles.fill" : "hands.sparkles")
-                            .font(.system(size: 16, weight: .semibold))
-                        Text("\(dua.ameenCount) Ameen")
-                            .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    }
-                    .foregroundColor(hasUserSaidAmeen ? .white : .mutedGold)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-                    .background(
-                        Capsule()
-                            .fill(hasUserSaidAmeen ? AnyShapeStyle(LinearGradient.goldAccent) : AnyShapeStyle(Color.mutedGold.opacity(0.15)))
-                    )
-                }
-                .buttonStyle(SmoothButtonStyle())
-                .contentShape(Rectangle())
-                .allowsHitTesting(true)
+                // Ameen button with lock and undo
+                AmeenButton(
+                    dua: dua,
+                    hasUserSaidAmeen: hasUserSaidAmeen,
+                    onAmeen: onAmeen
+                )
                 
                 Spacer()
                 
@@ -162,26 +146,12 @@ struct DuaOfTheDayCard: View {
             
             // Actions
             HStack {
-                // Ameen button
-                Button(action: {
-                    HapticFeedback.medium()
-                    onAmeen()
-                }) {
-                    HStack(spacing: 8) {
-                        Image(systemName: hasUserSaidAmeen ? "hands.sparkles.fill" : "hands.sparkles")
-                            .font(.system(size: 15, weight: .semibold))
-                        Text("\(dua.ameenCount) Ameen")
-                            .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    }
-                    .foregroundColor(hasUserSaidAmeen ? .white : .mutedGold)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 12)
-                    .background(
-                        Capsule()
-                            .fill(hasUserSaidAmeen ? AnyShapeStyle(LinearGradient.goldAccent) : AnyShapeStyle(Color.mutedGold.opacity(0.15)))
-                    )
-                }
-                .buttonStyle(SmoothButtonStyle())
+                // Ameen button with lock and undo
+                AmeenButton(
+                    dua: dua,
+                    hasUserSaidAmeen: hasUserSaidAmeen,
+                    onAmeen: onAmeen
+                )
                 
                 Spacer()
                 
@@ -197,8 +167,8 @@ struct DuaOfTheDayCard: View {
                 .fill(
                     // Solid opaque background - no transparency
                     colorScheme == .dark 
-                        ? Color(red: 0.18, green: 0.16, blue: 0.14)  // Deep warm charcoal
-                        : Color(red: 0.99, green: 0.97, blue: 0.94)  // Warm off-white cream
+                        ? Color.warmDarkCard  // Deep warm charcoal
+                        : Color.white  // Pure white for clarity
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 24)
@@ -252,16 +222,12 @@ struct DuaCard: View {
                 
                 Spacer()
                 
-                // Ameen button
-                Button(action: onAmeen) {
-                    HStack(spacing: 4) {
-                        Image(systemName: hasUserSaidAmeen ? "hands.sparkles.fill" : "hands.sparkles")
-                            .font(.system(size: 14, weight: .semibold))
-                        Text("\(dua.ameenCount)")
-                            .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    }
-                    .foregroundColor(hasUserSaidAmeen ? .mutedGold : Color.warmSecondaryText(colorScheme))
-                }
+                // Ameen button with lock and undo
+                AmeenButtonCompact(
+                    dua: dua,
+                    hasUserSaidAmeen: hasUserSaidAmeen,
+                    onAmeen: onAmeen
+                )
                 
                 // Menu
                 Menu {
@@ -658,5 +624,167 @@ struct ShimmerModifier: ViewModifier {
             .onAppear {
                 phase = 1
             }
+    }
+}
+
+// MARK: - Ameen Button Component (Full)
+
+struct AmeenButton: View {
+    let dua: Dua
+    let hasUserSaidAmeen: Bool
+    let onAmeen: () -> Void
+    
+    @State private var isLocked = false
+    @State private var showUndo = false
+    @State private var animatedCount: Int
+    @State private var undoTask: Task<Void, Never>?
+    @Environment(\.colorScheme) var colorScheme
+    
+    init(dua: Dua, hasUserSaidAmeen: Bool, onAmeen: @escaping () -> Void) {
+        self.dua = dua
+        self.hasUserSaidAmeen = hasUserSaidAmeen
+        self.onAmeen = onAmeen
+        _animatedCount = State(initialValue: dua.ameenCount)
+    }
+    
+    var body: some View {
+        Button(action: handleAmeenTap) {
+            HStack(spacing: 8) {
+                Image(systemName: hasUserSaidAmeen ? "hands.sparkles.fill" : "hands.sparkles")
+                    .font(.system(size: 16, weight: .semibold))
+                
+                if hasUserSaidAmeen && !showUndo {
+                    Text("You said Ameen")
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                } else {
+                    Text("\(animatedCount) Ameen")
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                }
+            }
+            .foregroundColor(hasUserSaidAmeen ? .white : .mutedGold)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background(
+                Capsule()
+                    .fill(hasUserSaidAmeen ? AnyShapeStyle(LinearGradient.goldAccent) : AnyShapeStyle(Color.mutedGold.opacity(0.15)))
+            )
+            .overlay(
+                Group {
+                    if showUndo {
+                        HStack {
+                            Spacer()
+                            Button(action: handleUndo) {
+                                Text("Undo")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                                    .background(
+                                        Capsule()
+                                            .fill(Color.red.opacity(0.8))
+                                    )
+                            }
+                            .padding(.trailing, 8)
+                        }
+                    }
+                }
+            )
+        }
+        .buttonStyle(SmoothButtonStyle())
+        .disabled(isLocked)
+        .opacity(isLocked ? 0.6 : 1.0)
+        .onChange(of: dua.ameenCount) { newCount in
+            // Animate count change smoothly
+            withAnimation(.easeOut(duration: 0.4)) {
+                animatedCount = newCount
+            }
+        }
+    }
+    
+    private func handleAmeenTap() {
+        // Lock button for 400ms to prevent rapid taps
+        isLocked = true
+        
+        // Trigger ameen action
+        onAmeen()
+        
+        // Gentle haptic (respects silent mode)
+        HapticFeedback.light()
+        
+        // Show undo option for 5 seconds if user just said ameen
+        if !hasUserSaidAmeen {
+            showUndo = true
+            undoTask?.cancel()
+            undoTask = Task {
+                try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
+                if !Task.isCancelled {
+                    await MainActor.run {
+                        showUndo = false
+                    }
+                }
+            }
+        }
+        
+        // Unlock after 400ms
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            isLocked = false
+        }
+    }
+    
+    private func handleUndo() {
+        undoTask?.cancel()
+        showUndo = false
+        // Undo is handled by the parent (toggling ameen again)
+        onAmeen()
+    }
+}
+
+// MARK: - Ameen Button Component (Compact for DuaCard)
+
+struct AmeenButtonCompact: View {
+    let dua: Dua
+    let hasUserSaidAmeen: Bool
+    let onAmeen: () -> Void
+    
+    @Environment(\.colorScheme) var colorScheme
+    @State private var isLocked = false
+    @State private var animatedCount: Int
+    
+    init(dua: Dua, hasUserSaidAmeen: Bool, onAmeen: @escaping () -> Void) {
+        self.dua = dua
+        self.hasUserSaidAmeen = hasUserSaidAmeen
+        self.onAmeen = onAmeen
+        _animatedCount = State(initialValue: dua.ameenCount)
+    }
+    
+    var body: some View {
+        Button(action: handleAmeenTap) {
+            HStack(spacing: 4) {
+                Image(systemName: hasUserSaidAmeen ? "hands.sparkles.fill" : "hands.sparkles")
+                    .font(.system(size: 14, weight: .semibold))
+                Text("\(animatedCount)")
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+            }
+            .foregroundColor(hasUserSaidAmeen ? .mutedGold : Color.warmSecondaryText(colorScheme))
+        }
+        .disabled(isLocked)
+        .opacity(isLocked ? 0.6 : 1.0)
+        .onChange(of: dua.ameenCount) { newCount in
+            // Animate count change smoothly
+            withAnimation(.easeOut(duration: 0.4)) {
+                animatedCount = newCount
+            }
+        }
+    }
+    
+    private func handleAmeenTap() {
+        // Lock button for 400ms
+        isLocked = true
+        onAmeen()
+        HapticFeedback.light()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            isLocked = false
+        }
     }
 }

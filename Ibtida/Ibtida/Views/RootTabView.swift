@@ -74,8 +74,8 @@ struct RootTabView: View {
     private var dailyDuaPopupOverlay: some View {
         if showDailyDuaPopup, let dailyDua = duaViewModel.dailyDua {
             ZStack {
-                // Background overlay - tap to dismiss
-                Color.black.opacity(0.5)
+                // Background overlay - SOLID (not translucent) to prevent see-through content
+                Color.black.opacity(0.75) // Increased opacity for better coverage
                     .ignoresSafeArea()
                     .contentShape(Rectangle())
                     .onTapGesture {

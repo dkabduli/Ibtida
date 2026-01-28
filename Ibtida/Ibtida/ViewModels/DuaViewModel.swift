@@ -18,6 +18,7 @@ class DuaViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var isLoadingDaily = false
     @Published var errorMessage: String?
+    @Published var isRetrying: Bool = false
     @Published var selectedFilter: DuaFilter = .all
     @Published var selectedTag: String?
     @Published var allTags: [String] = []
@@ -28,6 +29,9 @@ class DuaViewModel: ObservableObject {
     var hasLoadedOnce = false // Internal access for view state management
     private var loadTask: Task<Void, Never>?
     private var loadDailyTask: Task<Void, Never>?
+    
+    // Track last loaded date to detect date changes (midnight reset)
+    @Published private var lastLoadedDate: String = ""
     
     // MARK: - Computed Properties
     
@@ -90,9 +94,7 @@ class DuaViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         
-        #if DEBUG
-        print("📖 DuaViewModel: Loading duas...")
-        #endif
+        AppLog.network("Loading duas...")
         
         loadTask = Task {
             await performLoadDuas()
@@ -107,8 +109,36 @@ class DuaViewModel: ObservableObject {
             return
         }
         
+        // Check if date has changed (midnight reset)
+        let today = formatDate(Date())
+        if lastLoadedDate != today && !lastLoadedDate.isEmpty {
+            AppLog.state("Date changed, resetting duas list")
+            // Reset state for new day
+            self.duas = []
+            self.dailyDua = nil
+            self.hasLoadedOnce = false
+        }
+        lastLoadedDate = today
+        
         do {
-            let loadedDuas = try await duaService.loadDuas()
+            // Use retry logic for network operations (non-blocking)
+            let loadedDuas = try await NetworkErrorHandler.retryWithBackoff(
+                maxRetries: 3,
+                initialDelay: 1.0,
+                maxDelay: 10.0,
+                onRetry: { [weak self] attempt in
+                    Task { @MainActor in
+                        self?.isRetrying = true
+                    }
+                }
+            ) {
+                try await self.duaService.loadDuas()
+            }
+            
+            // Clear retry state on success
+            await MainActor.run {
+                isRetrying = false
+            }
             
             guard !Task.isCancelled else {
                 isLoading = false
@@ -121,9 +151,7 @@ class DuaViewModel: ObservableObject {
             // Also load tags
             await loadTags()
             
-            #if DEBUG
-            print("✅ DuaViewModel: Loaded \(loadedDuas.count) duas")
-            #endif
+            AppLog.network("Loaded \(loadedDuas.count) duas for \(today)")
             
         } catch {
             guard !Task.isCancelled else {
@@ -131,27 +159,18 @@ class DuaViewModel: ObservableObject {
                 return
             }
             
-            // Provide user-friendly error message
-            if let firestoreError = error as NSError? {
-                if firestoreError.domain == "FIRFirestoreErrorDomain" {
-                    switch firestoreError.code {
-                    case 14: // UNAVAILABLE
-                        self.errorMessage = "Unable to load duas. Please check your internet connection."
-                    case 4: // DEADLINE_EXCEEDED
-                        self.errorMessage = "Request timed out. Please try again."
-                    default:
-                        self.errorMessage = "Failed to load duas. Please try again."
-                    }
-                } else {
-                    self.errorMessage = "Failed to load duas: \(error.localizedDescription)"
-                }
-            } else {
-                self.errorMessage = "Failed to load duas. Please try again."
+            // Clear retry state on error
+            await MainActor.run {
+                isRetrying = false
             }
             
-            #if DEBUG
-            print("❌ DuaViewModel: Error loading duas - \(error)")
-            #endif
+            // Use centralized network error handling
+            self.errorMessage = NetworkErrorHandler.userFriendlyMessage(for: error)
+            
+            AppLog.error("Error loading duas - \(error.localizedDescription)")
+            
+            // Don't block UI - allow empty state to show even on network errors
+            // Error message is shown but doesn't prevent UI rendering
         }
         
         isLoading = false
@@ -176,9 +195,7 @@ class DuaViewModel: ObservableObject {
         
         isLoadingDaily = true
         
-        #if DEBUG
-        print("📖 DuaViewModel: Loading daily dua...")
-        #endif
+        AppLog.network("Loading daily dua...")
         
         loadDailyTask = Task {
             await performLoadDailyDua()
@@ -193,6 +210,24 @@ class DuaViewModel: ObservableObject {
             return
         }
         
+        // Check if date has changed (midnight reset)
+        let today = formatDate(Date())
+        let dayId = DateUtils.dayId()
+        
+        // Check cache first
+        if let cached = PerformanceCache.shared.getDailyDua(dayId: dayId) {
+            AppLog.verbose("Using cached daily dua for \(dayId)")
+            self.dailyDua = cached
+            isLoadingDaily = false
+            return
+        }
+        
+        if lastLoadedDate != today && !lastLoadedDate.isEmpty {
+            AppLog.state("Date changed, resetting daily dua")
+            self.dailyDua = nil
+            PerformanceCache.shared.clearDailyDua()
+        }
+        
         do {
             let dua = try await duaService.loadDailyDua(for: Date())
             
@@ -203,18 +238,13 @@ class DuaViewModel: ObservableObject {
             
             self.dailyDua = dua
             
-            // If no daily dua exists and we have duas, select one
-            if dua == nil && !duas.isEmpty {
-                await selectRandomDailyDua()
-            }
-            
-            #if DEBUG
+            // Cache the daily dua
             if let dua = dua {
-                print("✅ DuaViewModel: Loaded daily dua - ID: \(dua.id)")
+                PerformanceCache.shared.setDailyDua(dayId: dayId, dua: dua)
+                AppLog.network("Loaded daily dua - ID: \(dua.id) for \(today)")
             } else {
-                print("📖 DuaViewModel: No daily dua for today")
+                AppLog.verbose("No daily dua for \(today) (will be selected at 2 AM)")
             }
-            #endif
             
         } catch {
             guard !Task.isCancelled else {
@@ -231,7 +261,24 @@ class DuaViewModel: ObservableObject {
         isLoadingDaily = false
     }
     
+    // Helper to format date
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
+    
+    // MARK: - Deprecated: Daily dua selection now handled by DuaFirestoreService
     private func selectRandomDailyDua() async {
+        // This is now handled by DuaFirestoreService.loadDailyDua
+        // which automatically selects at 2 AM if missing
+        #if DEBUG
+        print("⚠️ DuaViewModel: selectRandomDailyDua is deprecated - handled by service")
+        #endif
+    }
+    
+    // Old implementation kept for reference (not used)
+    private func _oldSelectRandomDailyDua() async {
         guard !duas.isEmpty else { return }
         
         let randomDua = duas.randomElement()!
@@ -365,23 +412,8 @@ class DuaViewModel: ObservableObject {
             duas = originalDuas
             dailyDua = originalDaily
             
-            // Provide user-friendly error message
-            if let firestoreError = error as NSError? {
-                if firestoreError.domain == "FIRFirestoreErrorDomain" {
-                    switch firestoreError.code {
-                    case 14: // UNAVAILABLE
-                        errorMessage = "Unable to update. Please check your internet connection."
-                    case 4: // DEADLINE_EXCEEDED
-                        errorMessage = "Request timed out. Please try again."
-                    default:
-                        errorMessage = "Failed to update ameen. Please try again."
-                    }
-                } else {
-                    errorMessage = "Failed to update ameen: \(error.localizedDescription)"
-                }
-            } else {
-                errorMessage = "Failed to update ameen. Please try again."
-            }
+            // Use gentle language for spiritual actions
+            errorMessage = GentleLanguage.errorMessageForSpiritualAction(error)
             
             HapticFeedback.error()
             

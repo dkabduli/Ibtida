@@ -10,6 +10,7 @@ import SwiftUI
 struct HomePrayerView: View {
     @StateObject private var viewModel = HomePrayerViewModel()
     @EnvironmentObject var authService: AuthService
+    @EnvironmentObject var themeManager: ThemeManager
     @Environment(\.colorScheme) var colorScheme
     @State private var selectedPrayer: PrayerType?
     @State private var showStatusSheet = false
@@ -137,7 +138,7 @@ struct HomePrayerView: View {
             }
             
             VStack(spacing: 12) {
-                Text("Welcome to Ibtida")
+                Text(AppStrings.welcomeToApp)
                     .font(.system(size: 24, weight: .semibold, design: .rounded))
                     .foregroundColor(Color.warmText(colorScheme))
                 
@@ -154,12 +155,14 @@ struct HomePrayerView: View {
     
     private var greetingCard: some View {
         VStack(spacing: 16) {
-            // Arabic greeting
+            // Arabic greeting with accessibility
             Text("اَلسَلامُ عَلَيْكُم وَرَحْمَةُ اَللهِ وَبَرَكاتُهُ")
                 .font(.system(size: 22, weight: .medium, design: .serif))
                 .foregroundColor(Color.warmText(colorScheme))
                 .multilineTextAlignment(.center)
                 .environment(\.layoutDirection, .rightToLeft)
+                .accessibleArabicText("اَلسَلامُ عَلَيْكُم وَرَحْمَةُ اَللهِ وَبَرَكاتُهُ", english: "Peace be upon you and the mercy and blessings of Allah")
+                .dynamicTypeSize(...DynamicTypeSize.accessibility5) // Support larger text sizes
             
             // Divider
             Rectangle()
@@ -195,9 +198,29 @@ struct HomePrayerView: View {
     
     private var todaysSalahCard: some View {
         VStack(spacing: 20) {
-            // Header
-            HStack {
-                WarmSectionHeader("Today's Ṣalāh", icon: "sun.max.fill", subtitle: formattedDate)
+            // Header with Jumu'ah highlight for brothers on Fridays
+            VStack(spacing: 8) {
+                HStack {
+                    WarmSectionHeader("Today's Ṣalāh", icon: "sun.max.fill", subtitle: formattedDate)
+                }
+                
+                // Jumu'ah highlight for brothers on Fridays
+                if isFriday && themeManager.userGender == .brother {
+                    HStack(spacing: 8) {
+                        Image(systemName: "building.columns.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.mutedGold)
+                        Text("Jumu'ah (Friday Prayer)")
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundColor(.mutedGold)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule()
+                            .fill(Color.mutedGold.opacity(0.15))
+                    )
+                }
             }
             
             // 5 Prayer circles
@@ -217,6 +240,10 @@ struct HomePrayerView: View {
         return formatter.string(from: Date())
     }
     
+    private var isFriday: Bool {
+        Calendar.current.component(.weekday, from: Date()) == 6 // Friday
+    }
+    
     private var prayerCirclesRow: some View {
         HStack(spacing: 8) {
             ForEach(PrayerType.allCases) { prayer in
@@ -225,11 +252,12 @@ struct HomePrayerView: View {
                     status: viewModel.todayPrayers.status(for: prayer),
                     isLoading: viewModel.isSaving,
                     onTap: {
-                        HapticFeedback.medium()
+                        HapticFeedback.forPrayerStatus(viewModel.todayPrayers.status(for: prayer))
                         selectedPrayer = prayer
                         showStatusSheet = true
                     }
                 )
+                .environmentObject(ThemeManager.shared)
             }
         }
     }
@@ -256,7 +284,7 @@ struct HomePrayerView: View {
             .frame(height: 8)
             
             HStack {
-                Text("\(completed)/5 logged")
+                Text(GentleLanguage.partialCompletionMessage(completed: completed, total: 5))
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(Color.warmSecondaryText(colorScheme))
                 
@@ -286,6 +314,7 @@ struct HomePrayerView: View {
             // 5-Week Progress View
             FiveWeekProgressView(
                 prayerLogs: viewModel.prayerLogs,
+                todayPrayers: viewModel.todayPrayers, // Pass today's prayers for highlighting
                 onPrayerTap: { date, prayer in
                     // Optional: Could open a detail view or sheet
                     HapticFeedback.light()
@@ -375,24 +404,42 @@ struct WarmPrayerCircle: View {
     let onTap: () -> Void
     
     @Environment(\.colorScheme) var colorScheme
+    @EnvironmentObject var themeManager: ThemeManager
+    @State private var isPulsing = false
+    @State private var showCheckAnimation = false
     
     var body: some View {
         Button(action: onTap) {
             VStack(spacing: 8) {
-                // Circle
+                // Circle with gentle pulse animation when logged
                 ZStack {
                     Circle()
                         .fill(circleBackground)
                         .frame(width: 52, height: 52)
+                        .scaleEffect(isPulsing ? 1.05 : 1.0)
+                        .opacity(isPulsing ? 0.8 : 1.0)
                     
                     Circle()
                         .strokeBorder(circleBorder, lineWidth: 2.5)
                         .frame(width: 52, height: 52)
                     
-                    Image(systemName: statusIcon)
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(iconColor)
+                    // Status icon with soft check animation (use effectiveStatus for icon)
+                    ZStack {
+                        if showCheckAnimation {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundColor(iconColor)
+                                .scaleEffect(showCheckAnimation ? 1.2 : 0.8)
+                                .opacity(showCheckAnimation ? 0 : 1)
+                        } else {
+                            Image(systemName: effectiveStatusIcon)
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundColor(iconColor)
+                        }
+                    }
                 }
+                .animation(.easeOut(duration: 0.3), value: showCheckAnimation)
+                .animation(.easeInOut(duration: 0.6).repeatCount(2, autoreverses: true), value: isPulsing)
                 
                 // Prayer name
                 Text(prayer.displayName)
@@ -404,10 +451,45 @@ struct WarmPrayerCircle: View {
         .buttonStyle(WarmPrayerCircleStyle(status: status))
         .disabled(isLoading)
         .accessiblePrayerButton(prayer: prayer, status: status)
+        .onChange(of: status) { newStatus in
+            // Trigger gentle pulse and check animation when status changes from .none
+            if newStatus != .none {
+                triggerPrayerLoggedAnimation()
+            }
+        }
+    }
+    
+    private func triggerPrayerLoggedAnimation() {
+        // Gentle pulse
+        isPulsing = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            isPulsing = false
+        }
+        
+        // Soft check animation (only for on-time)
+        if status == .onTime {
+            showCheckAnimation = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                showCheckAnimation = false
+            }
+        }
+    }
+    
+    // Check if user is in menstrual mode (sisters only)
+    private var isMenstrualMode: Bool {
+        themeManager.userGender == .sister && themeManager.menstrualModeEnabled
+    }
+    
+    // For sisters in menstrual mode: show neutral placeholder instead of "missed"
+    private var effectiveStatus: PrayerStatus {
+        if isMenstrualMode && status == .missed {
+            return .menstrual // Show menstrual status instead of missed
+        }
+        return status
     }
     
     private var circleBackground: Color {
-        switch status {
+        switch effectiveStatus {
         case .none: return Color.warmSurface(colorScheme)
         case .onTime: return Color.prayerOnTime.opacity(0.15)
         case .late: return Color.prayerLate.opacity(0.15)
@@ -415,12 +497,12 @@ struct WarmPrayerCircle: View {
         case .missed: return Color.prayerMissed.opacity(0.15)
         case .prayedAtMasjid: return Color.purple.opacity(0.15)
         case .prayedAtHome: return Color.mint.opacity(0.15)
-        case .menstrual: return Color.red.opacity(0.15)
+        case .menstrual: return Color.gray.opacity(0.1) // Neutral, not red
         }
     }
     
     private var circleBorder: Color {
-        switch status {
+        switch effectiveStatus {
         case .none: return Color.warmBorder(colorScheme)
         case .onTime: return Color.prayerOnTime
         case .late: return Color.prayerLate
@@ -428,7 +510,7 @@ struct WarmPrayerCircle: View {
         case .missed: return Color.prayerMissed
         case .prayedAtMasjid: return Color.purple
         case .prayedAtHome: return Color.mint
-        case .menstrual: return Color.red.opacity(0.7)
+        case .menstrual: return Color.gray.opacity(0.4) // Neutral border
         }
     }
     
@@ -445,8 +527,22 @@ struct WarmPrayerCircle: View {
         }
     }
     
+    // Icon for effective status (used in display) - shows "N/A" icon for sisters
+    private var effectiveStatusIcon: String {
+        switch effectiveStatus {
+        case .none: return prayer.icon
+        case .onTime: return "checkmark"
+        case .late: return "clock"
+        case .qada: return "arrow.counterclockwise"
+        case .missed: return "xmark"
+        case .prayedAtMasjid: return "building.columns.fill"
+        case .prayedAtHome: return "house.fill"
+        case .menstrual: return "minus.circle.fill" // Clear "N/A" icon for sisters
+        }
+    }
+    
     private var iconColor: Color {
-        switch status {
+        switch effectiveStatus {
         case .none: return Color.warmSecondaryText(colorScheme)
         case .onTime: return Color.prayerOnTime
         case .late: return Color.prayerLate
@@ -454,7 +550,7 @@ struct WarmPrayerCircle: View {
         case .missed: return Color.prayerMissed
         case .prayedAtMasjid: return Color.purple
         case .prayedAtHome: return Color.mint
-        case .menstrual: return Color.red.opacity(0.7)
+        case .menstrual: return Color.gray.opacity(0.5) // Neutral gray
         }
     }
 }
@@ -507,41 +603,48 @@ struct WarmPrayerStatusSheet: View {
                             Text(prayer.displayName)
                                 .font(.system(size: 22, weight: .semibold, design: .rounded))
                                 .foregroundColor(Color.warmText(colorScheme))
+                                .dynamicTypeSize(...DynamicTypeSize.accessibility3) // Support larger text
                             
                             Text(prayer.arabicName)
                                 .font(.system(size: 16, weight: .medium, design: .serif))
                                 .foregroundColor(Color.warmSecondaryText(colorScheme))
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.85)
+                                .environment(\.layoutDirection, .rightToLeft) // RTL for Arabic
+                                .dynamicTypeSize(...DynamicTypeSize.accessibility3)
                         }
                     }
                     .padding(.top, 8)
                     
-                    // Status options (gender-specific)
-                    VStack(spacing: 12) {
-                        ForEach(availableStatuses, id: \.self) { status in
-                            WarmStatusOptionButton(
-                                status: status,
-                                isSelected: currentStatus == status,
-                                onTap: { onSelect(status) }
-                            )
-                        }
-                        
-                        // Clear option
-                        if currentStatus != .none {
-                            Button(action: { onSelect(.none) }) {
-                                HStack {
-                                    Image(systemName: "arrow.uturn.backward")
-                                    Text("Clear")
+                    // Status options (gender-specific) - Scrollable to ensure all options visible
+                    ScrollView {
+                        VStack(spacing: 12) {
+                            ForEach(availableStatuses, id: \.self) { status in
+                                WarmStatusOptionButton(
+                                    status: status,
+                                    isSelected: currentStatus == status,
+                                    onTap: { onSelect(status) }
+                                )
+                                .dynamicTypeSize(...DynamicTypeSize.accessibility3) // Support larger text
+                            }
+                            
+                            // Clear option
+                            if currentStatus != .none {
+                                Button(action: { onSelect(.none) }) {
+                                    HStack {
+                                        Image(systemName: "arrow.uturn.backward")
+                                        Text("Clear")
+                                    }
+                                    .font(.system(size: 15, weight: .medium))
+                                    .foregroundColor(Color.warmSecondaryText(colorScheme))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 14)
                                 }
-                                .font(.system(size: 15, weight: .medium))
-                                .foregroundColor(Color.warmSecondaryText(colorScheme))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
                             }
                         }
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 24) // Extra padding to ensure last option is visible
                     }
-                    .padding(.horizontal, 24)
-                    
-                    Spacer()
                 }
             }
             .navigationTitle("Log Prayer")
@@ -553,6 +656,8 @@ struct WarmPrayerStatusSheet: View {
                 }
             }
         }
+        .presentationDetents([.large]) // Ensure full height, no cutoff
+        .presentationDragIndicator(.visible)
     }
 }
 
@@ -579,16 +684,22 @@ struct WarmStatusOptionButton: View {
                         .foregroundColor(statusColor)
                 }
                 
-                // Labels
-                VStack(alignment: .leading, spacing: 2) {
+                // Labels - Fixed layout to prevent overlap
+                VStack(alignment: .leading, spacing: 4) {
                     Text(status.displayName)
                         .font(.system(size: 16, weight: .semibold, design: .rounded))
                         .foregroundColor(Color.warmText(colorScheme))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
                     
                     Text(status.arabicDescription)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 13, weight: .medium, design: .serif))
                         .foregroundColor(Color.warmSecondaryText(colorScheme))
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.85)
+                        .environment(\.layoutDirection, .rightToLeft)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 
                 Spacer()
                 

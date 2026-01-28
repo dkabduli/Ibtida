@@ -17,9 +17,7 @@ class FirestoreService {
     private var listeners: [String: ListenerRegistration] = [:]
     
     private init() {
-        #if DEBUG
-        print("✅ FirestoreService initialized")
-        #endif
+        AppLog.verbose("FirestoreService initialized")
     }
     
     // MARK: - Listener Management
@@ -28,30 +26,21 @@ class FirestoreService {
         // Remove existing listener with same key
         listeners[key]?.remove()
         listeners[key] = listener
-        #if DEBUG
-        print("👂 FirestoreService: Added listener - \(key)")
-        #endif
+        AppLog.verbose("Added listener - \(key)")
     }
     
     func removeListener(key: String) {
         listeners[key]?.remove()
         listeners.removeValue(forKey: key)
-        #if DEBUG
-        print("🔇 FirestoreService: Removed listener - \(key)")
-        #endif
+        AppLog.verbose("Removed listener - \(key)")
     }
     
     func removeAllListeners() {
         for (key, listener) in listeners {
             listener.remove()
-            #if DEBUG
-            print("🔇 FirestoreService: Removed listener - \(key)")
-            #endif
         }
         listeners.removeAll()
-        #if DEBUG
-        print("🧹 FirestoreService: All listeners removed")
-        #endif
+        AppLog.state("All listeners removed")
     }
     
     // MARK: - User Document Reference
