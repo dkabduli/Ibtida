@@ -44,7 +44,8 @@ struct PrayerDay: Codable, Identifiable {
         self.maghribStatus = maghribStatus
         self.ishaStatus = ishaStatus
         self.isMenstrualDay = isMenstrualDay
-        self.totalCreditsForDay = Self.calculateCredits(
+        // Calculate base credits (bonuses applied later by ViewModel)
+        self.totalCreditsForDay = Self.calculateBaseCredits(
             fajr: fajrStatus,
             dhuhr: dhuhrStatus,
             asr: asrStatus,
@@ -66,6 +67,7 @@ struct PrayerDay: Codable, Identifiable {
     }
     
     /// Set status for a specific prayer
+    /// Note: Call recalculateCredits() separately with bonus parameters after calling this
     mutating func setStatus(_ status: PrayerStatus, for prayer: PrayerType) {
         switch prayer {
         case .fajr: fajrStatus = status
@@ -74,22 +76,48 @@ struct PrayerDay: Codable, Identifiable {
         case .maghrib: maghribStatus = status
         case .isha: ishaStatus = status
         }
-        recalculateCredits()
+        // Credits will be recalculated by ViewModel with bonus parameters
     }
     
-    /// Recalculate total credits for the day
-    mutating func recalculateCredits() {
-        totalCreditsForDay = Self.calculateCredits(
+    /// Recalculate total credits for the day (with bonuses)
+    mutating func recalculateCredits(
+        accountAgeDays: Int = 0,
+        currentStreak: Int = 0,
+        gender: UserGender? = nil
+    ) {
+        let baseCredits = Self.calculateBaseCredits(
             fajr: fajrStatus,
             dhuhr: dhuhrStatus,
             asr: asrStatus,
             maghrib: maghribStatus,
             isha: ishaStatus
         )
+        
+        totalCreditsForDay = CreditRules.calculateFinalCredits(
+            baseCredits: baseCredits,
+            accountAgeDays: accountAgeDays,
+            currentStreak: currentStreak,
+            gender: gender
+        )
         lastUpdatedAt = Date()
     }
     
-    /// Calculate credits from statuses
+    /// Calculate base credits from statuses (before bonuses)
+    static func calculateBaseCredits(
+        fajr: PrayerStatus,
+        dhuhr: PrayerStatus,
+        asr: PrayerStatus,
+        maghrib: PrayerStatus,
+        isha: PrayerStatus
+    ) -> Int {
+        return CreditRules.baseCreditValue(for: fajr) +
+               CreditRules.baseCreditValue(for: dhuhr) +
+               CreditRules.baseCreditValue(for: asr) +
+               CreditRules.baseCreditValue(for: maghrib) +
+               CreditRules.baseCreditValue(for: isha)
+    }
+    
+    /// Calculate credits from statuses (legacy support - uses base only)
     static func calculateCredits(
         fajr: PrayerStatus,
         dhuhr: PrayerStatus,
@@ -97,7 +125,13 @@ struct PrayerDay: Codable, Identifiable {
         maghrib: PrayerStatus,
         isha: PrayerStatus
     ) -> Int {
-        return fajr.xpValue + dhuhr.xpValue + asr.xpValue + maghrib.xpValue + isha.xpValue
+        return calculateBaseCredits(
+            fajr: fajr,
+            dhuhr: dhuhr,
+            asr: asr,
+            maghrib: maghrib,
+            isha: isha
+        )
     }
     
     /// Create today's prayer day (timezone-aware)

@@ -109,16 +109,8 @@ enum PrayerStatus: String, CaseIterable, Identifiable, Codable {
     }
     
     var xpValue: Int {
-        switch self {
-        case .none: return 0
-        case .onTime: return 10
-        case .late: return 6
-        case .qada: return 4
-        case .missed: return 0
-        case .prayedAtMasjid: return 15  // Extra credit for praying at masjid
-        case .prayedAtHome: return 10
-        case .menstrual: return 0  // No prayer during menstrual period (not missed, just not applicable)
-        }
+        // Use CreditRules for consistency (base values only, bonuses applied separately)
+        return CreditRules.baseCreditValue(for: self)
     }
     
     var color: Color {

@@ -25,6 +25,10 @@ class HomePrayerViewModel: ObservableObject {
     @Published var userName: String = "Friend"
     @Published var prayerLogs: [PrayerLog] = []  // For 5-week progress view
     
+    // User profile data for credit calculations
+    @Published var userGender: UserGender?
+    @Published var accountCreatedAt: Date?
+    
     // MARK: - Private Properties
     
     private let db = Firestore.firestore()
@@ -58,6 +62,31 @@ class HomePrayerViewModel: ObservableObject {
         self.todayPrayers = PrayerDay.today()
         
         AppLog.verbose("HomePrayerViewModel initialized")
+    }
+    
+    // MARK: - Load User Profile
+    
+    func loadUserProfile(uid: String) async {
+        do {
+            let profile = try await UserProfileFirestoreService.shared.loadUserProfile(uid: uid)
+            if let profile = profile {
+                self.userGender = profile.gender
+                self.accountCreatedAt = profile.createdAt
+                AppLog.verbose("Loaded user profile - Gender: \(profile.gender?.displayName ?? "none"), Created: \(profile.createdAt)")
+            }
+        } catch {
+            AppLog.error("Failed to load user profile: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Calculate account age in days
+    private func accountAgeInDays() -> Int {
+        guard let createdAt = accountCreatedAt else {
+            return 0  // Default to 0 if not loaded yet
+        }
+        let calendar = Calendar.current
+        let days = calendar.dateComponents([.day], from: createdAt, to: Date()).day ?? 0
+        return max(0, days)
     }
     
     // MARK: - Load Today's Prayers
@@ -120,6 +149,16 @@ class HomePrayerViewModel: ObservableObject {
             self.hasLoadedToday = true
             // Still load user totals and weeks
             await loadUserTotals(uid: uid)
+            await loadUserProfile(uid: uid)
+            
+            // Recalculate credits with bonuses
+            let accountAgeDays = accountAgeInDays()
+            todayPrayers.recalculateCredits(
+                accountAgeDays: accountAgeDays,
+                currentStreak: currentStreak,
+                gender: userGender
+            )
+            
             await loadLast5Weeks(uid: uid)
             isLoading = false
             return
@@ -138,10 +177,26 @@ class HomePrayerViewModel: ObservableObject {
             if prayerDayDoc.exists, let data = prayerDayDoc.data() {
                 todayPrayers = parsePrayerDay(data: data, dateString: dateString)
                 
+                // Recalculate credits with current bonuses
+                let accountAgeDays = accountAgeInDays()
+                todayPrayers.recalculateCredits(
+                    accountAgeDays: accountAgeDays,
+                    currentStreak: currentStreak,
+                    gender: userGender
+                )
+                
                 AppLog.network("Loaded existing prayer day - Credits: \(todayPrayers.totalCreditsForDay)")
             } else {
                 // Create new prayer day for today
                 todayPrayers = PrayerDay.today()
+                
+                // Calculate credits with bonuses
+                let accountAgeDays = accountAgeInDays()
+                todayPrayers.recalculateCredits(
+                    accountAgeDays: accountAgeDays,
+                    currentStreak: currentStreak,
+                    gender: userGender
+                )
                 
                 AppLog.verbose("No existing prayer day, using default")
             }
@@ -149,8 +204,19 @@ class HomePrayerViewModel: ObservableObject {
             // Cache the loaded prayer day
             PerformanceCache.shared.setTodayPrayerDay(dayId: dateString, prayerDay: todayPrayers)
             
-            // Load user totals
+            // Load user totals first (includes streak)
             await loadUserTotals(uid: uid)
+            
+            // Load user profile for credit calculations (needs streak from totals)
+            await loadUserProfile(uid: uid)
+            
+            // Recalculate today's credits with loaded profile data
+            let accountAgeDays = accountAgeInDays()
+            todayPrayers.recalculateCredits(
+                accountAgeDays: accountAgeDays,
+                currentStreak: currentStreak,
+                gender: userGender
+            )
             
             // Load last 5 weeks for progress view
             await loadLast5Weeks(uid: uid)
@@ -239,11 +305,18 @@ class HomePrayerViewModel: ObservableObject {
         print("💾 HomePrayerViewModel: Updating \(prayer.displayName) to \(status.displayName)")
         #endif
         
-        // Check if menstrual mode is enabled
+        // Check if menstrual mode is enabled and ensure profile is loaded
         var isMenstrualDay = false
         do {
             let profile = try await UserProfileFirestoreService.shared.loadUserProfile(uid: uid)
             isMenstrualDay = profile?.menstrualModeEnabled ?? false
+            // Update gender and account date if not already loaded
+            if userGender == nil {
+                userGender = profile?.gender
+            }
+            if accountCreatedAt == nil {
+                accountCreatedAt = profile?.createdAt
+            }
         } catch {
             #if DEBUG
             print("⚠️ HomePrayerViewModel: Could not check menstrual mode - \(error)")
@@ -277,6 +350,15 @@ class HomePrayerViewModel: ObservableObject {
         }
         newPrayerDay.setStatus(status, for: prayer)
         newPrayerDay.isMenstrualDay = isMenstrualDay // Mark as menstrual day if mode is enabled
+        
+        // Recalculate credits with bonuses
+        let accountAgeDays = accountAgeInDays()
+        newPrayerDay.recalculateCredits(
+            accountAgeDays: accountAgeDays,
+            currentStreak: currentStreak,
+            gender: userGender
+        )
+        
         let newCredits = newPrayerDay.totalCreditsForDay
         let creditDelta = newCredits - oldCredits
         
@@ -414,11 +496,13 @@ class HomePrayerViewModel: ObservableObject {
         prayerDay.isMenstrualDay = data["isMenstrualDay"] as? Bool ?? false
         
         // Safely parse credits (defensive)
-        if let credits = data["totalCreditsForDay"] as? Int {
-            prayerDay.totalCreditsForDay = max(0, credits) // Ensure non-negative
-        } else {
-            prayerDay.recalculateCredits() // Recalculate if missing
-        }
+        // Recalculate credits with bonuses (will use defaults if profile not loaded yet)
+        let accountAgeDays = accountAgeInDays()
+        prayerDay.recalculateCredits(
+            accountAgeDays: accountAgeDays,
+            currentStreak: currentStreak,
+            gender: userGender
+        )
         
         return prayerDay
     }
