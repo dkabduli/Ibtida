@@ -220,7 +220,7 @@ class AuthService: ObservableObject {
                 "name": name,
                 "email": email,
                 "gender": gender.rawValue,
-                "credits": 0,
+                "totalCredits": 0, // Standardized field name
                 "currentStreak": 0,
                 "onboardingCompleted": true, // Gender selected during sign-up, so onboarding is complete
                 "menstrualModeEnabled": false,

@@ -148,6 +148,9 @@ struct AppSettingsView: View {
     
     // MARK: - About Section
     
+    @State private var showDiagnostics = false
+    @State private var diagnosticsTapCount = 0
+    
     private var aboutSection: some View {
         Section {
             HStack {
@@ -157,6 +160,14 @@ struct AppSettingsView: View {
                     .foregroundColor(Color.warmSecondaryText(colorScheme))
             }
             .listRowBackground(Color.warmCard(colorScheme))
+            .onTapGesture {
+                diagnosticsTapCount += 1
+                if diagnosticsTapCount >= 5 {
+                    showDiagnostics = true
+                    diagnosticsTapCount = 0
+                    HapticFeedback.medium()
+                }
+            }
             
             Link(destination: URL(string: "https://example.com/privacy")!) {
                 HStack {
@@ -191,6 +202,9 @@ struct AppSettingsView: View {
                 .foregroundColor(Color.warmSecondaryText(colorScheme))
                 .frame(maxWidth: .infinity)
                 .padding(.top, 16)
+        }
+        .sheet(isPresented: $showDiagnostics) {
+            DiagnosticsView()
         }
     }
     

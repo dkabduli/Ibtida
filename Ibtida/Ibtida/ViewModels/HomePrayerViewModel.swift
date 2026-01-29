@@ -142,12 +142,12 @@ class HomePrayerViewModel: ObservableObject {
         }
         lastLoadedDayId = dateString
         
-        // Check cache first
+        // Check cache first (works offline)
         if let cached = PerformanceCache.shared.getTodayPrayerDay(dayId: dateString) {
             AppLog.verbose("Using cached prayer day for \(dateString)")
             self.todayPrayers = cached
             self.hasLoadedToday = true
-            // Still load user totals and weeks
+            // Still load user totals and weeks (with offline handling)
             await loadUserTotals(uid: uid)
             await loadUserProfile(uid: uid)
             
@@ -166,63 +166,18 @@ class HomePrayerViewModel: ObservableObject {
         
         AppLog.network("Loading prayers for dayId: \(dateString) (timezone: \(DateUtils.userTimezone))")
         
+        // Use retry logic for network operations (handles offline gracefully)
         do {
-            // Load today's prayer day
-            let prayerDayDoc = try await db.collection(FirestorePaths.users)
-                .document(uid)
-                .collection(FirestorePaths.prayerDays)
-                .document(dateString)
-                .getDocument()
-            
-            if prayerDayDoc.exists, let data = prayerDayDoc.data() {
-                todayPrayers = parsePrayerDay(data: data, dateString: dateString)
-                
-                // Recalculate credits with current bonuses
-                let accountAgeDays = accountAgeInDays()
-                todayPrayers.recalculateCredits(
-                    accountAgeDays: accountAgeDays,
-                    currentStreak: currentStreak,
-                    gender: userGender
-                )
-                
-                AppLog.network("Loaded existing prayer day - Credits: \(todayPrayers.totalCreditsForDay)")
-            } else {
-                // Create new prayer day for today
-                todayPrayers = PrayerDay.today()
-                
-                // Calculate credits with bonuses
-                let accountAgeDays = accountAgeInDays()
-                todayPrayers.recalculateCredits(
-                    accountAgeDays: accountAgeDays,
-                    currentStreak: currentStreak,
-                    gender: userGender
-                )
-                
-                AppLog.verbose("No existing prayer day, using default")
+            try await NetworkErrorHandler.retryWithBackoff(
+                maxRetries: 2,
+                initialDelay: 1.0,
+                maxDelay: 5.0,
+                onRetry: { attempt in
+                    AppLog.network("Retrying load (attempt \(attempt))")
+                }
+            ) {
+                try await self.performFirestoreLoad(uid: uid, dateString: dateString)
             }
-            
-            // Cache the loaded prayer day
-            PerformanceCache.shared.setTodayPrayerDay(dayId: dateString, prayerDay: todayPrayers)
-            
-            // Load user totals first (includes streak)
-            await loadUserTotals(uid: uid)
-            
-            // Load user profile for credit calculations (needs streak from totals)
-            await loadUserProfile(uid: uid)
-            
-            // Recalculate today's credits with loaded profile data
-            let accountAgeDays = accountAgeInDays()
-            todayPrayers.recalculateCredits(
-                accountAgeDays: accountAgeDays,
-                currentStreak: currentStreak,
-                gender: userGender
-            )
-            
-            // Load last 5 weeks for progress view
-            await loadLast5Weeks(uid: uid)
-            
-            hasLoadedToday = true
-            
         } catch {
             // Don't set error if task was cancelled
             guard !Task.isCancelled else {
@@ -266,19 +221,77 @@ class HomePrayerViewModel: ObservableObject {
                 .getDocument()
             
             if let data = userDoc.data() {
-                totalCredits = data["totalCredits"] as? Int ?? 0
+                // Standardize on totalCredits (migrate from legacy "credits" if needed)
+                totalCredits = data["totalCredits"] as? Int ?? data["credits"] as? Int ?? 0
                 currentStreak = data["currentStreak"] as? Int ?? 0
                 userName = data["name"] as? String ?? "Friend"
                 
-                #if DEBUG
-                print("✅ HomePrayerViewModel: Loaded user totals - Credits: \(totalCredits), Streak: \(currentStreak)")
-                #endif
+                AppLog.verbose("Loaded user totals - Credits: \(totalCredits), Streak: \(currentStreak)")
             }
         } catch {
-            #if DEBUG
-            print("❌ HomePrayerViewModel: Error loading user totals - \(error)")
-            #endif
+            // Don't fail silently - log but don't block UI
+            AppLog.error("Error loading user totals - \(error.localizedDescription)")
+            // Use cached values if available (don't reset to 0 on network error)
         }
+    }
+    
+    /// Perform the actual Firestore load (extracted for retry logic)
+    private func performFirestoreLoad(uid: String, dateString: String) async throws {
+        // Load today's prayer day
+        let prayerDayDoc = try await db.collection(FirestorePaths.users)
+            .document(uid)
+            .collection(FirestorePaths.prayerDays)
+            .document(dateString)
+            .getDocument()
+        
+        if prayerDayDoc.exists, let data = prayerDayDoc.data() {
+            todayPrayers = parsePrayerDay(data: data, dateString: dateString)
+            
+            // Recalculate credits with current bonuses
+            let accountAgeDays = accountAgeInDays()
+            todayPrayers.recalculateCredits(
+                accountAgeDays: accountAgeDays,
+                currentStreak: currentStreak,
+                gender: userGender
+            )
+            
+            AppLog.network("Loaded existing prayer day - Credits: \(todayPrayers.totalCreditsForDay)")
+        } else {
+            // Create new prayer day for today
+            todayPrayers = PrayerDay.today()
+            
+            // Calculate credits with bonuses
+            let accountAgeDays = accountAgeInDays()
+            todayPrayers.recalculateCredits(
+                accountAgeDays: accountAgeDays,
+                currentStreak: currentStreak,
+                gender: userGender
+            )
+            
+            AppLog.verbose("No existing prayer day, using default")
+        }
+        
+        // Cache the loaded prayer day
+        PerformanceCache.shared.setTodayPrayerDay(dayId: dateString, prayerDay: todayPrayers)
+        
+        // Load user totals first (includes streak)
+        await loadUserTotals(uid: uid)
+        
+        // Load user profile for credit calculations (needs streak from totals)
+        await loadUserProfile(uid: uid)
+        
+        // Recalculate today's credits with loaded profile data
+        let accountAgeDays = accountAgeInDays()
+        todayPrayers.recalculateCredits(
+            accountAgeDays: accountAgeDays,
+            currentStreak: currentStreak,
+            gender: userGender
+        )
+        
+        // Load last 5 weeks for progress view
+        await loadLast5Weeks(uid: uid)
+        
+        hasLoadedToday = true
     }
     
     // MARK: - Update Prayer Status
@@ -379,6 +392,14 @@ class HomePrayerViewModel: ObservableObject {
                 creditDelta: creditDelta
             )
             
+            // Also persist per-prayer log for 5-week progress view (does not affect credits)
+            await savePrayerLogForFiveWeekGrid(
+                uid: uid,
+                date: newPrayerDay.date,
+                prayer: prayer,
+                status: status
+            )
+            
             HapticFeedback.success()
             
             AppLog.network("Saved prayer status - Delta: \(creditDelta), Menstrual: \(isMenstrualDay)")
@@ -401,6 +422,50 @@ class HomePrayerViewModel: ObservableObject {
         isSaving = false
     }
     
+    /// Save / update a per-prayer log used by the 5-week progress grid.
+    /// This keeps `users/{uid}/prayers` in sync with `prayerDays` so historical
+    /// weeks render correctly without impacting credit or streak logic.
+    private func savePrayerLogForFiveWeekGrid(
+        uid: String,
+        date: Date,
+        prayer: PrayerType,
+        status: PrayerStatus
+    ) async {
+        // Build deterministic log ID based on timezone-aware dayId and prayer type
+        let dayId = DateUtils.dayId(for: date)
+        let logId = "\(dayId)-\(prayer.rawValue)"
+        
+        let log = PrayerLog(
+            id: logId,
+            date: date,
+            prayerType: prayer,
+            status: status
+        )
+        
+        do {
+            try await prayerService.savePrayerLog(log)
+            
+            // Optimistically update local state so the 5-week grid reflects the change immediately
+            if let index = prayerLogs.firstIndex(where: { $0.id == log.id }) {
+                prayerLogs[index] = log
+            } else {
+                prayerLogs.append(log)
+            }
+            
+            // Update cached weeks logs for this user to keep session cache in sync
+            PerformanceCache.shared.setWeeksLogs(uid: uid, logs: prayerLogs)
+            
+            #if DEBUG
+            print("✅ HomePrayerViewModel: Saved prayer log for \(dayId) - \(prayer.rawValue): \(status.rawValue)")
+            #endif
+        } catch {
+            // Log softly in debug; primary source of truth remains `prayerDays`
+            #if DEBUG
+            print("⚠️ HomePrayerViewModel: Failed to save prayer log for 5-week grid - \(error)")
+            #endif
+        }
+    }
+    
     // MARK: - Save with Transaction
     
     private func savePrayerDayWithTransaction(
@@ -420,11 +485,11 @@ class HomePrayerViewModel: ObservableObject {
         let userRef = db.collection(FirestorePaths.users).document(uid)
         let prayerDayRef = userRef.collection(FirestorePaths.prayerDays).document(dayId)
         
-        // Use timezone-aware dayId consistently - NO DUPLICATE KEYS
+        // Use timezone-aware dayId consistently - SINGLE SOURCE OF TRUTH
+        // dayId is the document ID and also stored as field for querying
         var prayerDayData: [String: Any] = [
-            "dayId": dayId, // Store dayId for reference
-            "dateString": dayId, // Primary date identifier (timezone-aware)
-            "date": Timestamp(date: prayerDay.date),
+            "dayId": dayId, // Primary date identifier (timezone-aware, yyyy-MM-dd format)
+            "date": Timestamp(date: prayerDay.date), // Firestore Timestamp for querying by date range
             "fajrStatus": prayerDay.fajrStatus.rawValue,
             "dhuhrStatus": prayerDay.dhuhrStatus.rawValue,
             "asrStatus": prayerDay.asrStatus.rawValue,

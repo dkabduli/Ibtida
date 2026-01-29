@@ -35,7 +35,8 @@ class UserProfileFirestoreService {
         
         let name = data["name"] as? String ?? "User"
         let email = data["email"] as? String ?? ""
-        let credits = data["credits"] as? Int ?? 0
+        // Standardize on totalCredits (migrate from legacy "credits" field if needed)
+        let totalCredits = data["totalCredits"] as? Int ?? data["credits"] as? Int ?? 0
         let currentStreak = data["currentStreak"] as? Int ?? 0
         
         let createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
@@ -53,7 +54,7 @@ class UserProfileFirestoreService {
             id: uid,
             name: name,
             email: email,
-            credits: credits,
+            credits: totalCredits, // Map to credits property (internal model uses credits, Firestore uses totalCredits)
             currentStreak: currentStreak,
             createdAt: createdAt,
             lastUpdatedAt: lastUpdatedAt,
@@ -65,7 +66,7 @@ class UserProfileFirestoreService {
         )
         
         #if DEBUG
-        print("📖 Loaded user profile from Firestore - UID: \(uid), credits: \(credits), streak: \(currentStreak), gender: \(gender?.rawValue ?? "nil"), onboarding: \(onboardingCompleted)")
+        print("📖 Loaded user profile from Firestore - UID: \(uid), totalCredits: \(totalCredits), streak: \(currentStreak), gender: \(gender?.rawValue ?? "nil"), onboarding: \(onboardingCompleted)")
         #endif
         
         return profile
@@ -88,7 +89,7 @@ class UserProfileFirestoreService {
         var data: [String: Any] = [
             "name": profile.name,
             "email": profile.email,
-            "credits": profile.credits,
+            "totalCredits": profile.credits, // Write as totalCredits (standardized field name)
             "currentStreak": profile.currentStreak,
             "lastUpdatedAt": Timestamp(date: Date())
         ]
@@ -155,7 +156,7 @@ class UserProfileFirestoreService {
         let data: [String: Any] = [
             "name": name,
             "email": email,
-            "credits": 0,
+            "totalCredits": 0, // Standardized field name
             "currentStreak": 0,
             "onboardingCompleted": false,
             "menstrualModeEnabled": false,

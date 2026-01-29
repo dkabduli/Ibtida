@@ -360,21 +360,21 @@ struct FiveWeekProgressView: View {
         let labelHeight: CGFloat
     }
     
-    // Optimized layout: larger circles, better fill, responsive
+    // Optimized layout: smaller circles, better spacing, fills container properly
     private var layout: WeekLayout {
-        // Increased sizes for better visual fill
-        let circleSize: CGFloat = 16 // Increased from 12
-        let circleSpacing: CGFloat = 5 // Increased from 3
-        let rowSpacing: CGFloat = 4 // Slightly tighter than circle spacing
-        let interWeekSpacing: CGFloat = AppSpacing.lg // 16 - good gap between weeks
-        let horizontalPadding: CGFloat = AppSpacing.md // 12
-        let verticalPadding: CGFloat = AppSpacing.xs // 4 - reduced for better fill
-        let labelHeight: CGFloat = 22
+        // Smaller circles for better visual density and fill
+        let circleSize: CGFloat = 12 // Reduced from 16 for better spacing
+        let circleSpacing: CGFloat = 4 // Reduced from 5 for tighter but even spacing
+        let rowSpacing: CGFloat = 3 // Tighter row spacing for compact grid
+        let interWeekSpacing: CGFloat = AppSpacing.md // 12 - good separation between weeks
+        let horizontalPadding: CGFloat = AppSpacing.sm // 8 - reduced padding
+        let verticalPadding: CGFloat = AppSpacing.xs // 4 - minimal vertical padding
+        let labelHeight: CGFloat = 20 // Reduced label height
         
         // Calculate week column width based on circle size and spacing
-        // (7 circles * 16) + (6 gaps * 5) = 112 + 30 = 142
+        // (7 circles * 12) + (6 gaps * 4) = 84 + 24 = 108
         let calculatedWidth = (CGFloat(7) * circleSize) + (CGFloat(6) * circleSpacing)
-        let weekColumnWidth = max(calculatedWidth, 150) // Minimum 150 for comfortable spacing
+        let weekColumnWidth = max(calculatedWidth, 110) // Minimum 110 for comfortable spacing
         
         return WeekLayout(
             circleSize: circleSize,
@@ -392,15 +392,13 @@ struct FiveWeekProgressView: View {
     private var weekStarts: [Date] {
         let weekStarts = DateUtils.lastNWeekStarts(5)
         
+        // Logs moved to verbose to reduce noise (only log on first render or errors)
         #if DEBUG
-        print("📅 FiveWeekProgressView: Week starts: \(weekStarts.map { DateUtils.logString(for: $0) }.joined(separator: ", "))")
-        // Verify each week has 7 days
+        // Only log if there's an issue (week doesn't have 7 days)
         for weekStart in weekStarts {
             let days = DateUtils.daysInWeek(containing: weekStart)
             if days.count != 7 {
                 print("⚠️ FiveWeekProgressView: Expected 7 days, got \(days.count) for week starting \(DateUtils.logString(for: weekStart))")
-            } else {
-                print("✅ FiveWeekProgressView: Week starting \(DateUtils.logString(for: weekStart)) has \(days.count) days")
             }
         }
         #endif
