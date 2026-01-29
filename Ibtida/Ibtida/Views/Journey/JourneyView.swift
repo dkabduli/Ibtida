@@ -2,290 +2,530 @@
 //  JourneyView.swift
 //  Ibtida
 //
-//  Journey page - shows user's spiritual progress and stats
+//  Journey progress dashboard: header summary, this week, last 5 weeks, milestones.
 //
 
 import SwiftUI
-import FirebaseAuth
 
 struct JourneyView: View {
-    @State private var userProfile: UserProfile?
-    @State private var isLoading = true
-    
+    @StateObject private var viewModel = JourneyViewModel()
+    @EnvironmentObject var authService: AuthService
+    @Environment(\.colorScheme) var colorScheme
+
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(.systemGroupedBackground)
-                    .ignoresSafeArea()
-                
-                ScrollView {
-                    VStack(spacing: 20) {
-                        // Profile card
-                        profileCard
-                        
-                        // Stats grid
-                        statsGrid
-                        
-                        // Progress section
-                        progressSection
-                        
-                        // Achievements (placeholder)
-                        achievementsSection
-                    }
-                    .padding(16)
-                }
+                WarmBackgroundView()
+                mainContent
             }
             .navigationTitle("Journey")
             .navigationBarTitleDisplayMode(.large)
-            .onAppear { loadProfile() }
-            .refreshable { loadProfile() }
+            .onAppear { viewModel.loadIfNeeded() }
+            .refreshable { viewModel.refresh() }
+            .sheet(item: $viewModel.activeSheetRoute) { _ in
+                if let detail = viewModel.activeDayDetail {
+                    JourneyDayDetailSheet(detail: detail, onDismiss: { viewModel.dismissSheet() })
+                }
+            }
+            .overlay(alignment: .top) {
+                if let message = viewModel.errorMessage {
+                    errorBanner(message)
+                }
+            }
         }
     }
-    
-    // MARK: - Profile Card
-    
-    private var profileCard: some View {
-        VStack(spacing: 16) {
-            // Avatar
+
+    // MARK: - Main Content
+
+    @ViewBuilder
+    private var mainContent: some View {
+        if !authService.isLoggedIn {
+            signInPrompt
+        } else if viewModel.loadState == .loading && viewModel.currentWeek == nil {
+            skeletonView
+        } else {
+            scrollContent
+        }
+    }
+
+    // MARK: - Sign-in prompt
+
+    private var signInPrompt: some View {
+        VStack(spacing: 28) {
             ZStack {
                 Circle()
-                    .fill(Color.accentColor.opacity(0.1))
-                    .frame(width: 80, height: 80)
-                
-                Text(userProfile?.name.prefix(1).uppercased() ?? "?")
-                    .font(.largeTitle.weight(.semibold))
-                    .foregroundColor(.accentColor)
+                    .fill(Color.mutedGold.opacity(0.15))
+                    .frame(width: 100, height: 100)
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .font(.system(size: 45))
+                    .foregroundColor(.mutedGold)
             }
-            
-            // Name
-            Text(userProfile?.name ?? "Loading...")
-                .font(.title2.weight(.semibold))
-            
-            // Email
-            Text(userProfile?.email ?? "")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+            VStack(spacing: 12) {
+                Text("Your Journey Awaits")
+                    .font(.system(size: 24, weight: .semibold, design: .rounded))
+                    .foregroundColor(Color.warmText(colorScheme))
+                Text("Sign in to track your progress")
+                    .font(.system(size: 16))
+                    .foregroundColor(Color.warmSecondaryText(colorScheme))
+            }
         }
-        .frame(maxWidth: .infinity)
-        .padding(24)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color(.secondarySystemBackground))
-        )
+        .padding(48)
     }
-    
-    // MARK: - Stats Grid
-    
-    private var statsGrid: some View {
-        LazyVGrid(columns: [
-            GridItem(.flexible()),
-            GridItem(.flexible())
-        ], spacing: 16) {
-            StatCard(
-                title: "Credits",
-                value: "\(userProfile?.credits ?? 0)",
-                icon: "star.fill",
-                color: .yellow
-            )
-            
-            StatCard(
-                title: "Streak",
-                value: "\(userProfile?.currentStreak ?? 0) days",
-                icon: "flame.fill",
-                color: .orange
-            )
-        }
-    }
-    
-    // MARK: - Progress Section
-    
-    private var progressSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Your Progress")
-                .font(.headline)
-            
-            // Weekly progress
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Weekly Goal")
-                        .font(.subheadline)
-                    Spacer()
-                    Text("25/35 prayers")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+
+    // MARK: - Skeleton (no blank screen)
+
+    private var skeletonView: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 24) {
+                // Section 1 skeleton
+                VStack(alignment: .leading, spacing: 12) {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.warmSurface(colorScheme).opacity(0.6))
+                        .frame(width: 120, height: 28)
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.warmSurface(colorScheme).opacity(0.5))
+                        .frame(width: 180, height: 20)
+                    HStack(spacing: 12) {
+                        ForEach(0..<3, id: \.self) { _ in
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.warmSurface(colorScheme).opacity(0.5))
+                                .frame(height: 64)
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
                 }
-                
-                ProgressView(value: 25, total: 35)
-                    .tint(.accentColor)
-                
-                Text("Complete 25 prayers to earn 1 credit")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(.tertiarySystemBackground))
-            )
-            
-            // Credits progress
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Credits Balance")
-                        .font(.subheadline)
-                    Spacer()
-                    Text("\(userProfile?.credits ?? 0)/100")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                .padding(.horizontal, 20)
+
+                // Section 2 skeleton
+                VStack(alignment: .leading, spacing: 12) {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.warmSurface(colorScheme).opacity(0.5))
+                        .frame(width: 100, height: 22)
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.warmSurface(colorScheme).opacity(0.5))
+                        .frame(height: 120)
                 }
-                
-                ProgressView(value: Double(userProfile?.credits ?? 0), total: 100)
-                    .tint(.yellow)
-                
-                Text("100 credits = $1 donation value")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                .padding(.horizontal, 20)
+
+                // Section 3 skeleton
+                VStack(alignment: .leading, spacing: 12) {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.warmSurface(colorScheme).opacity(0.5))
+                        .frame(width: 140, height: 22)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(alignment: .top, spacing: 12) {
+                            ForEach(0..<3, id: \.self) { _ in
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color.warmSurface(colorScheme).opacity(0.5))
+                                    .frame(width: 140, height: 100)
+                            }
+                        }
+                        .padding(.leading, 20)
+                    }
+                }
             }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(.tertiarySystemBackground))
-            )
+            .padding(.top, 16)
+            .padding(.bottom, 32)
         }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color(.secondarySystemBackground))
-        )
     }
-    
-    // MARK: - Achievements Section
-    
-    private var achievementsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Achievements")
-                .font(.headline)
-            
-            HStack(spacing: 16) {
-                AchievementBadge(
-                    icon: "star.fill",
-                    title: "First Dua",
-                    isUnlocked: true
-                )
-                
-                AchievementBadge(
+
+    // MARK: - Scroll content (4 sections)
+
+    private var scrollContent: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 24) {
+                section1HeaderSummary
+                section2ThisWeek
+                section3LastFiveWeeks
+                section4Milestones
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 32)
+        }
+    }
+
+    // MARK: - Section 1: Header Summary
+
+    private var section1HeaderSummary: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Journey")
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundColor(Color.warmText(colorScheme))
+            Text("Your prayer consistency over time")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundColor(Color.warmSecondaryText(colorScheme))
+
+            HStack(spacing: 12) {
+                compactCard(
                     icon: "flame.fill",
-                    title: "7 Day Streak",
-                    isUnlocked: (userProfile?.currentStreak ?? 0) >= 7
+                    value: "\(viewModel.userSummary.streakDays)",
+                    label: "Streak",
+                    color: .softTerracotta
                 )
-                
-                AchievementBadge(
-                    icon: "heart.fill",
-                    title: "100 Ameen",
-                    isUnlocked: false
+                compactCard(
+                    icon: "star.fill",
+                    value: "\(viewModel.userSummary.credits)",
+                    label: "Credits",
+                    color: .mutedGold
                 )
-            }
-        }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color(.secondarySystemBackground))
-        )
-    }
-    
-    // MARK: - Actions
-    
-    private func loadProfile() {
-        guard let uid = AuthService.shared.userUID else {
-            userProfile = nil
-            isLoading = false
-            return
-        }
-        
-        isLoading = true
-        
-        Task {
-            do {
-                let profile = try await UserProfileFirestoreService.shared.loadUserProfile(uid: uid)
-                await MainActor.run {
-                    self.userProfile = profile
-                    self.isLoading = false
-                }
-            } catch {
-                #if DEBUG
-                print("❌ JourneyView: Failed to load profile from Firestore - \(error)")
-                #endif
-                await MainActor.run {
-                    self.userProfile = nil
-                    self.isLoading = false
+                if let week = viewModel.currentWeek {
+                    compactCard(
+                        icon: "checkmark.circle.fill",
+                        value: "\(week.completedCount)/\(week.totalCount)",
+                        label: "This week",
+                        color: .prayerOnTime
+                    )
+                } else {
+                    compactCard(
+                        icon: "checkmark.circle.fill",
+                        value: "0/35",
+                        label: "This week",
+                        color: .prayerOnTime
+                    )
                 }
             }
-        }
-    }
-}
-
-// MARK: - Stat Card
-
-struct StatCard: View {
-    let title: String
-    let value: String
-    let icon: String
-    let color: Color
-    
-    var body: some View {
-        VStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(color.opacity(0.1))
-                    .frame(width: 50, height: 50)
-                
-                Image(systemName: icon)
-                    .font(.title2)
-                    .foregroundColor(color)
+            .padding(.top, 4)
+            if let updated = viewModel.lastUpdated {
+                Text(relativeTimeString(from: updated))
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(Color.warmSecondaryText(colorScheme).opacity(0.8))
             }
-            
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Journey summary: \(viewModel.userSummary.streakDays) day streak, \(viewModel.userSummary.credits) credits")
+    }
+
+    private func relativeTimeString(from date: Date) -> String {
+        let s = Int(-date.timeIntervalSinceNow)
+        if s < 10 { return "Last updated: Just now" }
+        if s < 60 { return "Last updated: \(s)s ago" }
+        let m = s / 60
+        if m < 60 { return "Last updated: \(m) min ago" }
+        let h = m / 60
+        if h < 24 { return "Last updated: \(h) hr ago" }
+        return "Last updated: \(h / 24) day ago"
+    }
+
+    private func compactCard(icon: String, value: String, label: String, color: Color) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 18))
+                .foregroundColor(color)
             Text(value)
-                .font(.title2.weight(.semibold))
-            
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
+                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .foregroundColor(Color.warmText(colorScheme))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(Color.warmSecondaryText(colorScheme))
         }
         .frame(maxWidth: .infinity)
-        .padding(20)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 8)
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.secondarySystemBackground))
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.warmSurface(colorScheme))
         )
+    }
+
+    // MARK: - Section 2: This Week
+
+    private var section2ThisWeek: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            WarmSectionHeader("This Week", icon: "calendar")
+            if let week = viewModel.currentWeek {
+                if hasNoLogsAtAll(week: week) {
+                    emptyStateCard
+                } else {
+                    weekGrid(week: week)
+                }
+            } else {
+                emptyWeekPlaceholder
+            }
+        }
+        .padding(20)
+        .warmCard(elevation: .medium)
+        .accessibleCard(label: "This week's prayer progress")
+    }
+
+    private func hasNoLogsAtAll(week: JourneyWeekSummary) -> Bool {
+        viewModel.lastFiveWeeks.allSatisfy { $0.completedCount == 0 }
+    }
+
+    private var emptyStateCard: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "calendar.badge.plus")
+                .font(.system(size: 36))
+                .foregroundColor(Color.warmSecondaryText(colorScheme).opacity(0.6))
+            Text("Your Journey will appear here as you log prayers.")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundColor(Color.warmSecondaryText(colorScheme))
+                .multilineTextAlignment(.center)
+            Text("Log today in the Home tab")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.mutedGold)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+    }
+
+    private func weekGrid(week: JourneyWeekSummary) -> some View {
+        let dayLabels = ["S", "M", "T", "W", "T", "F", "S"]
+        let dayFormatter = DateFormatter()
+        dayFormatter.dateFormat = "d"
+        dayFormatter.timeZone = TimeZone.current
+        return VStack(spacing: 10) {
+            HStack(spacing: 0) {
+                ForEach(Array(dayLabels.enumerated()), id: \.offset) { _, label in
+                    Text(label)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(Color.warmSecondaryText(colorScheme))
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            HStack(spacing: 0) {
+                ForEach(week.daySummaries) { day in
+                    Text(dayFormatter.string(from: day.date))
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(Color.warmText(colorScheme))
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            HStack(spacing: 4) {
+                ForEach(week.daySummaries) { day in
+                    Button {
+                        viewModel.selectDay(date: day.date)
+                    } label: {
+                        dayCell(day: day)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func dayCell(day: JourneyDaySummary) -> some View {
+        let isToday = Calendar.current.isDateInToday(day.date)
+        return VStack(spacing: 4) {
+            HStack(spacing: 2) {
+                ForEach(0..<5, id: \.self) { i in
+                    Circle()
+                        .fill(i < day.prayersCompleted ? dotColor(for: day) : Color.warmSecondaryText(colorScheme).opacity(0.2))
+                        .frame(width: 6, height: 6)
+                }
+            }
+        }
+        .frame(height: 36)
+        .frame(maxWidth: .infinity)
+        .padding(6)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isToday ? Color.mutedGold.opacity(0.15) : Color.clear)
+        )
+        .accessibilityLabel("\(shortDayLabel(day.date)) \(dayFormatterForDay().string(from: day.date)): \(day.prayersCompleted) of 5 prayers complete")
+        .accessibilityHint("Double tap to see day detail")
+    }
+
+    private func dayFormatterForDay() -> DateFormatter {
+        let f = DateFormatter()
+        f.dateFormat = "d"
+        f.timeZone = TimeZone.current
+        return f
+    }
+
+    private func dotColor(for day: JourneyDaySummary) -> Color {
+        if day.prayersCompleted >= day.prayersTotal { return .prayerOnTime }
+        return Color.mutedGold.opacity(0.9)
+    }
+
+    private var emptyWeekPlaceholder: some View {
+        HStack(spacing: 4) {
+            ForEach(0..<7, id: \.self) { _ in
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.warmSecondaryText(colorScheme).opacity(0.2))
+                    .frame(height: 8)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+        .frame(height: 44)
+        .padding(4)
+    }
+
+    private func shortDayLabel(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "EEE"
+        f.timeZone = TimeZone.current
+        return f.string(from: date)
+    }
+
+    // MARK: - Section 3: Last 5 Weeks (left-justified horizontal)
+
+    private var section3LastFiveWeeks: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            WarmSectionHeader("Last 5 Weeks", icon: "calendar.badge.clock")
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(alignment: .top, spacing: 12) {
+                    ForEach(viewModel.lastFiveWeeks) { week in
+                        lastWeekCard(week: week)
+                    }
+                }
+                .padding(.leading, 16)
+                .padding(.trailing, 20)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .accessibleCard(label: "Last 5 weeks progress")
+    }
+
+    private func lastWeekCard(week: JourneyWeekSummary) -> some View {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        formatter.timeZone = TimeZone.current
+        let startStr = formatter.string(from: week.weekStart)
+        let endStr = formatter.string(from: week.weekEnd)
+        return VStack(alignment: .leading, spacing: 10) {
+            Text("\(startStr)–\(endStr)")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(Color.warmText(colorScheme))
+            Text("\(week.completedCount)/\(week.totalCount)")
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .foregroundColor(Color.warmSecondaryText(colorScheme))
+            HStack(spacing: 2) {
+                ForEach(week.daySummaries) { day in
+                    Circle()
+                        .fill(day.prayersCompleted > 0 ? Color.mutedGold : Color.warmSecondaryText(colorScheme).opacity(0.25))
+                        .frame(width: 8, height: 8)
+                }
+            }
+        }
+        .frame(width: 120, alignment: .leading)
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.warmSurface(colorScheme))
+        )
+        .accessibilityLabel("Week \(startStr) to \(endStr), \(week.completedCount) of 35 prayers")
+    }
+
+    // MARK: - Section 4: Milestones
+
+    private var section4Milestones: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            WarmSectionHeader("Milestones", icon: "flag.fill")
+            VStack(spacing: 8) {
+                ForEach(viewModel.computedMilestones()) { row in
+                    HStack(spacing: 12) {
+                        Image(systemName: row.achieved ? "checkmark.circle.fill" : "circle")
+                            .font(.system(size: 20))
+                            .foregroundColor(row.achieved ? .prayerOnTime : Color.warmSecondaryText(colorScheme).opacity(0.6))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(row.title)
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(Color.warmText(colorScheme))
+                            Text(row.subtitle)
+                                .font(.system(size: 12))
+                                .foregroundColor(Color.warmSecondaryText(colorScheme))
+                        }
+                        Spacer()
+                    }
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color.warmSurface(colorScheme))
+                    )
+                }
+            }
+        }
+        .padding(20)
+        .warmCard(elevation: .medium)
+        .accessibleCard(label: "Journey milestones")
+    }
+
+    // MARK: - Error banner
+
+    private func errorBanner(_ message: String) -> some View {
+        Text(message)
+            .font(.system(size: 14, weight: .medium))
+            .foregroundColor(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(Capsule().fill(Color.softTerracotta))
+            .padding(.top, 8)
     }
 }
 
-// MARK: - Achievement Badge
+// MARK: - Day Detail Sheet (never blank; data set before presentation)
 
-struct AchievementBadge: View {
-    let icon: String
-    let title: String
-    let isUnlocked: Bool
-    
+struct JourneyDayDetailSheet: View {
+    let detail: JourneyDayDetail
+    let onDismiss: () -> Void
+    @Environment(\.colorScheme) var colorScheme
+
+    private static var timeFormatter: DateFormatter {
+        let f = DateFormatter()
+        f.dateFormat = "h:mm a"
+        f.timeZone = TimeZone.current
+        return f
+    }
+
+    private static var dayFormatter: DateFormatter {
+        let f = DateFormatter()
+        f.dateFormat = "EEEE, MMM d"
+        f.timeZone = TimeZone.current
+        return f
+    }
+
     var body: some View {
-        VStack(spacing: 8) {
-            ZStack {
-                Circle()
-                    .fill(isUnlocked ? Color.accentColor.opacity(0.1) : Color(.systemGray5))
-                    .frame(width: 50, height: 50)
-                
-                Image(systemName: icon)
-                    .font(.title3)
-                    .foregroundColor(isUnlocked ? .accentColor : .secondary)
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(detail.prayerItems) { item in
+                        HStack(spacing: 12) {
+                            Image(systemName: item.status.icon)
+                                .foregroundColor(item.status.color)
+                                .frame(width: 28)
+                            Text(item.prayerType.displayName)
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(Color.warmText(colorScheme))
+                            Spacer()
+                            if item.status != .none {
+                                VStack(alignment: .trailing, spacing: 2) {
+                                    Text(item.status.displayName)
+                                        .font(.system(size: 14))
+                                        .foregroundColor(Color.warmSecondaryText(colorScheme))
+                                    if let ts = item.timestamp {
+                                        Text(Self.timeFormatter.string(from: ts))
+                                            .font(.system(size: 12))
+                                            .foregroundColor(Color.warmSecondaryText(colorScheme).opacity(0.8))
+                                    }
+                                }
+                            } else {
+                                Text("Not logged")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(Color.warmSecondaryText(colorScheme).opacity(0.7))
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                } header: {
+                    Text("\(detail.prayersCompleted)/\(detail.prayersTotal) prayers")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(Color.warmSecondaryText(colorScheme))
+                }
             }
-            
-            Text(title)
-                .font(.caption2)
-                .foregroundColor(isUnlocked ? .primary : .secondary)
-                .multilineTextAlignment(.center)
+            .listStyle(.insetGrouped)
+            .navigationTitle(Self.dayFormatter.string(from: detail.date))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { onDismiss() }
+                }
+            }
         }
-        .frame(maxWidth: .infinity)
-        .opacity(isUnlocked ? 1 : 0.5)
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
     }
 }
 
@@ -293,4 +533,5 @@ struct AchievementBadge: View {
 
 #Preview {
     JourneyView()
+        .environmentObject(AuthService.shared)
 }

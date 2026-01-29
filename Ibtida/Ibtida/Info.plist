@@ -6,6 +6,8 @@
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>Ibtida</string>
+	<key>SMPrivilegedExecutables</key>
+	<dict/>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -59,5 +61,7 @@
 	<string>540265398756-8gf600nn6ed64mb6nfn4kp3hq6p1laiu.apps.googleusercontent.com</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>StripePublishableKey</key>
+	<string>pk_test_51Sv0U02EN69zR5Kxu2IHGrUkam55lMQubhuLTWX67jHWGyZZvQT5Bgqfuk11qMHV9aA5wfxqSpIFtvwx6aQDZhHL002ZLPSJtq</string>
 </dict>
 </plist>

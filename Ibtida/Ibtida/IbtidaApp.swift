@@ -2,23 +2,43 @@
 //  IbtidaApp.swift
 //  Ibtida
 //
-//  App entry point - handles Firebase configuration, auth routing, and theming
+//  App entry point - handles Firebase configuration, auth routing, Stripe, and theming
 //
 
 import SwiftUI
 import FirebaseCore
+import Stripe
 
 // MARK: - App Delegate
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
-        // Configure Firebase at app launch - before any Firebase APIs are used
         FirebaseApp.configure()
-        
+
         #if DEBUG
         print("✅ AppDelegate: Firebase configured at app launch")
         #endif
-        
+
+        // Stripe: set publishable key as early as possible (single source: StripeConfig)
+        // PaymentSheet requires both StripeAPI.defaultPublishableKey and STPAPIClient.shared.publishableKey
+        let stripeKey = StripeConfig.publishableKey
+        if !stripeKey.isEmpty {
+            StripeAPI.defaultPublishableKey = stripeKey
+            STPAPIClient.shared.publishableKey = stripeKey
+            #if DEBUG
+            if stripeKey.hasPrefix("pk_test_") {
+                print("🔑 Stripe: TEST mode (pk_test_...) – PaymentSheet ready")
+            } else if stripeKey.hasPrefix("pk_live_") {
+                print("🔑 Stripe: LIVE mode (pk_live_...) – PaymentSheet ready")
+            }
+            #endif
+            StripeConfig.logKeyMode(stripeKey)
+        } else {
+            #if DEBUG
+            print("❌ Stripe: publishable key missing or invalid. Set Info.plist key 'StripePublishableKey' to pk_test_... or use env STRIPE_PUBLISHABLE_KEY. Payment will fail.")
+            #endif
+        }
+
         return true
     }
 }

@@ -7,13 +7,23 @@
 
 import SwiftUI
 
+// MARK: - Prayer sheet route (single source of truth; prevents blank first tap)
+
+private enum HomePrayerSheetRoute: Identifiable {
+    case prayerStatus(PrayerType)
+    var id: String {
+        switch self {
+        case .prayerStatus(let p): return "prayer-\(p.rawValue)"
+        }
+    }
+}
+
 struct HomePrayerView: View {
     @StateObject private var viewModel = HomePrayerViewModel()
     @EnvironmentObject var authService: AuthService
     @EnvironmentObject var themeManager: ThemeManager
     @Environment(\.colorScheme) var colorScheme
-    @State private var selectedPrayer: PrayerType?
-    @State private var showStatusSheet = false
+    @State private var sheetRoute: HomePrayerSheetRoute?
     
     var body: some View {
         NavigationStack {
@@ -25,19 +35,24 @@ struct HomePrayerView: View {
             .navigationBarTitleDisplayMode(.inline)
             .onAppear { handleOnAppear() }
             .refreshable { await refreshData() }
-            .sheet(isPresented: $showStatusSheet) {
-                if let prayer = selectedPrayer {
+            .sheet(item: $sheetRoute) { route in
+                switch route {
+                case .prayerStatus(let prayer):
                     WarmPrayerStatusSheet(
                         prayer: prayer,
                         currentStatus: viewModel.todayPrayers.status(for: prayer),
+                        isLoading: viewModel.isLoading,
                         onSelect: { status in
+                            #if DEBUG
+                            print("📥 HomePrayerView: prayer status selected \(prayer.rawValue) -> \(status.rawValue)")
+                            #endif
                             Task {
                                 await viewModel.updatePrayerStatus(prayer: prayer, status: status)
                             }
-                            showStatusSheet = false
+                            sheetRoute = nil
                         }
                     )
-                    .presentationDetents([.medium])
+                    .presentationDetents([.large])
                     .presentationDragIndicator(.visible)
                 }
             }
@@ -252,9 +267,11 @@ struct HomePrayerView: View {
                     status: viewModel.todayPrayers.status(for: prayer),
                     isLoading: viewModel.isSaving,
                     onTap: {
+                        #if DEBUG
+                        print("📤 HomePrayerView: prayer circle tapped \(prayer.rawValue)")
+                        #endif
                         HapticFeedback.forPrayerStatus(viewModel.todayPrayers.status(for: prayer))
-                        selectedPrayer = prayer
-                        showStatusSheet = true
+                        sheetRoute = .prayerStatus(prayer)
                     }
                 )
                 .environmentObject(ThemeManager.shared)
@@ -560,6 +577,7 @@ struct WarmPrayerCircle: View {
 struct WarmPrayerStatusSheet: View {
     let prayer: PrayerType
     let currentStatus: PrayerStatus
+    var isLoading: Bool = false
     let onSelect: (PrayerStatus) -> Void
     
     @Environment(\.dismiss) var dismiss
@@ -587,7 +605,7 @@ struct WarmPrayerStatusSheet: View {
                 Color.warmBackground(colorScheme, gender: userGender).ignoresSafeArea()
                 
                 VStack(spacing: 24) {
-                    // Prayer info
+                    // Prayer info (always visible so sheet is never blank)
                     VStack(spacing: 12) {
                         ZStack {
                             Circle()
@@ -616,34 +634,42 @@ struct WarmPrayerStatusSheet: View {
                     }
                     .padding(.top, 8)
                     
-                    // Status options (gender-specific) - Scrollable to ensure all options visible
-                    ScrollView {
-                        VStack(spacing: 12) {
-                            ForEach(availableStatuses, id: \.self) { status in
-                                WarmStatusOptionButton(
-                                    status: status,
-                                    isSelected: currentStatus == status,
-                                    onTap: { onSelect(status) }
-                                )
-                                .dynamicTypeSize(...DynamicTypeSize.accessibility3) // Support larger text
-                            }
-                            
-                            // Clear option
-                            if currentStatus != .none {
-                                Button(action: { onSelect(.none) }) {
-                                    HStack {
-                                        Image(systemName: "arrow.uturn.backward")
-                                        Text("Clear")
+                    if isLoading {
+                        ProgressView()
+                            .scaleEffect(1.2)
+                            .tint(.mutedGold)
+                            .padding(.vertical, 24)
+                        Spacer(minLength: 0)
+                    } else {
+                        // Status options (gender-specific) - Scrollable to ensure all options visible
+                        ScrollView {
+                            VStack(spacing: 12) {
+                                ForEach(availableStatuses, id: \.self) { status in
+                                    WarmStatusOptionButton(
+                                        status: status,
+                                        isSelected: currentStatus == status,
+                                        onTap: { onSelect(status) }
+                                    )
+                                    .dynamicTypeSize(...DynamicTypeSize.accessibility3) // Support larger text
+                                }
+                                
+                                // Clear option
+                                if currentStatus != .none {
+                                    Button(action: { onSelect(.none) }) {
+                                        HStack {
+                                            Image(systemName: "arrow.uturn.backward")
+                                            Text("Clear")
+                                        }
+                                        .font(.system(size: 15, weight: .medium))
+                                        .foregroundColor(Color.warmSecondaryText(colorScheme))
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 14)
                                     }
-                                    .font(.system(size: 15, weight: .medium))
-                                    .foregroundColor(Color.warmSecondaryText(colorScheme))
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 14)
                                 }
                             }
+                            .padding(.horizontal, 24)
+                            .padding(.bottom, 24) // Extra padding to ensure last option is visible
                         }
-                        .padding(.horizontal, 24)
-                        .padding(.bottom, 24) // Extra padding to ensure last option is visible
                     }
                 }
             }

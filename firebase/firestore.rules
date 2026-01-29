@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ----- organizationIntakes -----
+    // Client: create with status=draft and allowed fields only; read/update own doc.
+    // Client cannot set paymentIntentId or status to succeeded/failed/canceled (server sets those).
+    match /organizationIntakes/{intakeId} {
+      allow create: if request.auth != null
+        && request.resource.data.status == "draft"
+        && request.resource.data.userId == request.auth.uid
+        && !request.resource.data.keys().hasAny(["paymentIntentId", "latestEventId"]);
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ----- payments (server-only) -----
+    match /payments/{paymentIntentId} {
+      allow read, write: if false;
+    }
+
+    // ----- users -----
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // User's donation receipts (server-only write; client read for history)
+      match /donations/{donationId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+    }
+
+    // ----- donations (legacy top-level; Functions write) -----
+    match /donations/{docId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // ----- charities -----
+    match /charities/{charityId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

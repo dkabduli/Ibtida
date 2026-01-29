@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "ibtida-b1b7c"
-  }
+    "default": "ibtida-b1b7c",
+    "prod": "ibtida-b1b7c"
+  },
+  "targets": {},
+  "etags": {}
 }

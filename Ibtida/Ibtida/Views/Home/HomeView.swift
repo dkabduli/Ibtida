@@ -7,10 +7,16 @@
 
 import SwiftUI
 
+/// Identifiable selection for prayer picker sheet (fixes blank-first-tap race: sheet presents only when item is set).
+struct PrayerSelectionItem: Identifiable {
+    let id = UUID()
+    let date: Date
+    let prayer: PrayerType
+}
+
 struct HomeView: View {
     @StateObject private var viewModel = HomeViewModel()
-    @State private var showPrayerStatusPicker = false
-    @State private var selectedPrayer: (date: Date, prayer: PrayerType)?
+    @State private var selectedPrayerItem: PrayerSelectionItem?
     
     var body: some View {
         NavigationStack {
@@ -44,20 +50,23 @@ struct HomeView: View {
                     await viewModel.loadPrayerLogs()
                 }
             }
-            .sheet(isPresented: $showPrayerStatusPicker) {
-                if let selected = selectedPrayer {
-                    PrayerStatusPickerSheet(
-                        date: selected.date,
-                        prayer: selected.prayer,
-                        currentStatus: viewModel.prayerLogs.first(where: { $0.date == selected.date && $0.prayerType == selected.prayer })?.status ?? .missed,
-                        onSelect: { status in
-                            Task {
-                                await viewModel.setPrayerStatus(date: selected.date, prayer: selected.prayer, status: status)
-                            }
-                            showPrayerStatusPicker = false
+            .sheet(item: $selectedPrayerItem) { selection in
+                PrayerStatusPickerSheet(
+                    date: selection.date,
+                    prayer: selection.prayer,
+                    currentStatus: viewModel.prayerLogs.first(where: { $0.date == selection.date && $0.prayerType == selection.prayer })?.status ?? .missed,
+                    onSelect: { status in
+                        #if DEBUG
+                        print("📥 HomeView: prayer status selected \(selection.prayer.rawValue) -> \(status.rawValue)")
+                        #endif
+                        Task {
+                            await viewModel.setPrayerStatus(date: selection.date, prayer: selection.prayer, status: status)
                         }
-                    )
-                }
+                        selectedPrayerItem = nil
+                    }
+                )
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
             }
         }
     }
@@ -124,9 +133,11 @@ struct HomeView: View {
                                 prayer: prayer,
                                 status: viewModel.prayerLogs.first(where: { Calendar.current.isDateInToday($0.date) && $0.prayerType == prayer })?.status ?? .missed,
                                 onTap: {
-                                    let today = Date()
-                                    selectedPrayer = (today, prayer)
-                                    showPrayerStatusPicker = true
+                                    #if DEBUG
+                                    print("📤 HomeView: prayer circle tapped \(prayer.rawValue)")
+                                    #endif
+                                    HapticFeedback.light()
+                                    selectedPrayerItem = PrayerSelectionItem(date: Date(), prayer: prayer)
                                 }
                             )
                         }
@@ -141,10 +152,13 @@ struct HomeView: View {
                 
                 FiveWeekProgressView(
                     prayerLogs: viewModel.prayerLogs,
-                    todayPrayers: nil, // HomeView doesn't have todayPrayers - will use logs only
+                    todayPrayers: nil,
                     onPrayerTap: { date, prayer in
-                        selectedPrayer = (date, prayer)
-                        showPrayerStatusPicker = true
+                        #if DEBUG
+                        print("📤 HomeView: week prayer tapped \(prayer.rawValue) date=\(date)")
+                        #endif
+                        HapticFeedback.light()
+                        selectedPrayerItem = PrayerSelectionItem(date: date, prayer: prayer)
                     }
                 )
             }
@@ -166,8 +180,11 @@ struct HomeView: View {
                 WeeklyPrayerGridView(
                     prayerLogs: viewModel.prayerLogs,
                     onPrayerTap: { date, prayer in
-                        selectedPrayer = (date, prayer)
-                        showPrayerStatusPicker = true
+                        #if DEBUG
+                        print("📤 HomeView: weekly grid prayer tapped \(prayer.rawValue)")
+                        #endif
+                        HapticFeedback.light()
+                        selectedPrayerItem = PrayerSelectionItem(date: date, prayer: prayer)
                     }
                 )
             }
@@ -322,26 +339,31 @@ struct FiveWeekProgressView: View {
     let todayPrayers: PrayerDay? // Today's prayer day for highlighting
     let onPrayerTap: (Date, PrayerType) -> Void
     
-    // Get today's dayId (timezone-aware)
     private var todayDayId: String {
         DateUtils.dayId()
     }
     
+    private var currentWeekStart: Date {
+        DateUtils.weekStart(for: Date())
+    }
+    
     var body: some View {
-        // 5 weeks side-by-side (horizontal) - oldest to newest (current week rightmost)
+        // Horizontal scroll: current week first (left), older weeks to the right. Leading-aligned.
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: layout.interWeekSpacing) {
-                ForEach(Array(weekStarts.enumerated()), id: \.offset) { weekIndex, weekStart in
+            HStack(alignment: .top, spacing: layout.interWeekSpacing) {
+                ForEach(weekStarts, id: \.self) { weekStart in
                     WeekColumn(
                         weekStart: weekStart,
                         weekDays: daysInWeek(containing: weekStart),
                         prayerLogs: prayerLogs,
                         todayPrayers: todayPrayers,
                         todayDayId: todayDayId,
-                        layout: layout
+                        layout: layout,
+                        isCurrentWeek: Calendar.current.isDate(weekStart, inSameDayAs: currentWeekStart)
                     )
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, layout.horizontalPadding)
         }
         .padding(.vertical, layout.verticalPadding)
@@ -388,22 +410,9 @@ struct FiveWeekProgressView: View {
         )
     }
     
-    // Get the last 5 week starts (Sunday-based, oldest to newest)
+    // Last 5 week starts: index 0 = current week, 1 = previous, … (current week first, leftmost)
     private var weekStarts: [Date] {
-        let weekStarts = DateUtils.lastNWeekStarts(5)
-        
-        // Logs moved to verbose to reduce noise (only log on first render or errors)
-        #if DEBUG
-        // Only log if there's an issue (week doesn't have 7 days)
-        for weekStart in weekStarts {
-            let days = DateUtils.daysInWeek(containing: weekStart)
-            if days.count != 7 {
-                print("⚠️ FiveWeekProgressView: Expected 7 days, got \(days.count) for week starting \(DateUtils.logString(for: weekStart))")
-            }
-        }
-        #endif
-        
-        return weekStarts
+        DateUtils.lastNWeekStarts(5)
     }
     
     private func weekStartLabel(for weekStart: Date) -> String {
@@ -464,18 +473,16 @@ struct WeekColumn: View {
     let todayPrayers: PrayerDay?
     let todayDayId: String
     let layout: FiveWeekProgressView.WeekLayout
+    var isCurrentWeek: Bool = false
     
     var body: some View {
         VStack(spacing: 6) {
-            // Week start date label
             Text(weekStartLabel(for: weekStart))
-                .font(AppTypography.captionBold)
-                .foregroundColor(.primary)
+                .font(isCurrentWeek ? AppTypography.captionBold : AppTypography.caption)
+                .foregroundColor(isCurrentWeek ? .primary : .secondary)
                 .frame(height: layout.labelHeight)
             
-            // 35 circles: 7 days x 5 prayers
             VStack(spacing: layout.rowSpacing) {
-                // 5 rows (prayers)
                 ForEach(PrayerType.allCases, id: \.self) { prayer in
                     PrayerWeekRow(
                         weekDays: weekDays,
@@ -489,10 +496,17 @@ struct WeekColumn: View {
                 }
             }
         }
-        .frame(width: layout.weekColumnWidth)
+        .frame(width: layout.weekColumnWidth, alignment: .leading)
+        .padding(.vertical, isCurrentWeek ? 4 : 0)
+        .padding(.horizontal, isCurrentWeek ? 4 : 0)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(isCurrentWeek ? Color.accentColor.opacity(0.6) : Color.clear, lineWidth: isCurrentWeek ? 2 : 0)
+        )
     }
     
     private func weekStartLabel(for weekStart: Date) -> String {
+        if isCurrentWeek { return "This Week" }
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d"
         formatter.timeZone = TimeZone.current
@@ -650,6 +664,8 @@ struct PrayerStatusPickerSheet: View {
                 }
             }
         }
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
     }
     
     private func dayLabel(for date: Date) -> String {

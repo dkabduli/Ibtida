@@ -14,6 +14,10 @@ module.exports = {
     "no-restricted-globals": ["error", "name", "length"],
     "prefer-arrow-callback": "error",
     "quotes": ["error", "double", {"allowTemplateLiterals": true}],
+    "require-jsdoc": "off",
+    "valid-jsdoc": "off",
+    "max-len": ["warn", {"code": 160, "ignoreStrings": true, "ignoreTemplateLiterals": true}],
+    "indent": ["error", 2, {"SwitchCase": 1}],
   },
   overrides: [
     {

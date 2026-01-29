@@ -163,6 +163,10 @@ struct ProfileView: View {
             }
             
             VStack(spacing: 12) {
+                NavigationLink(destination: DonationsHistoryView().environmentObject(authService)) {
+                    appLinkRow(icon: "heart.circle", title: "Donations", color: .mutedGold)
+                }
+
                 NavigationLink(destination: AboutView()) {
                     appLinkRow(icon: "info.circle", title: "About", color: .mutedGold)
                 }

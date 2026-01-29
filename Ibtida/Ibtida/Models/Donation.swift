@@ -2,10 +2,12 @@
 //  Donation.swift
 //  Ibtida
 //
-//  Donation and receipt models
+//  Donation and receipt models.
+//  UserDonationReceipt: receipt stored in users/{uid}/donations/{intakeId} (server-written).
 //
 
 import Foundation
+import FirebaseFirestore
 
 enum DonationMethod: String, Codable {
     case credits = "credits"
@@ -37,6 +39,57 @@ struct Donation: Identifiable, Codable {
         self.createdAt = createdAt
         self.receiptId = receiptId
         self.userId = userId
+    }
+}
+
+/// Receipt document in users/{uid}/donations/{donationId}. Written by Cloud Functions (webhook / finalizeDonation).
+struct UserDonationReceipt: Identifiable, Hashable {
+    var id: String { intakeId }
+    static func == (lhs: UserDonationReceipt, rhs: UserDonationReceipt) -> Bool { lhs.intakeId == rhs.intakeId }
+    func hash(into hasher: inout Hasher) { hasher.combine(intakeId) }
+    var uid: String
+    var intakeId: String
+    var organizationId: String?
+    var organizationName: String?
+    var amountCents: Int
+    var currency: String
+    var stripePaymentIntentId: String?
+    var stripeChargeId: String?
+    var receiptUrl: String?
+    var status: String
+    var createdAt: Date
+    var environment: String?
+    var appVersion: String?
+    var platform: String?
+
+    var amountDollars: Double { Double(amountCents) / 100 }
+
+    init?(documentId: String, data: [String: Any]) {
+        guard let uid = data["uid"] as? String,
+              let intakeId = data["intakeId"] as? String,
+              let amountCents = data["amountCents"] as? Int,
+              let currency = data["currency"] as? String,
+              let status = data["status"] as? String else { return nil }
+        let createdAt: Date
+        if let ts = data["createdAt"] as? Timestamp {
+            createdAt = ts.dateValue()
+        } else {
+            createdAt = Date()
+        }
+        self.uid = uid
+        self.intakeId = intakeId
+        self.organizationId = data["organizationId"] as? String
+        self.organizationName = data["organizationName"] as? String
+        self.amountCents = amountCents
+        self.currency = currency
+        self.stripePaymentIntentId = data["stripePaymentIntentId"] as? String
+        self.stripeChargeId = data["stripeChargeId"] as? String
+        self.receiptUrl = data["receiptUrl"] as? String
+        self.status = status
+        self.createdAt = createdAt
+        self.environment = data["environment"] as? String
+        self.appVersion = data["appVersion"] as? String
+        self.platform = data["platform"] as? String
     }
 }
 

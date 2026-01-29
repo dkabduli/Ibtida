@@ -23,8 +23,8 @@ struct RootTabView: View {
                 }
                 .tag(0)
             
-            // Tab 2: Journey (Credits + Milestones)
-            JourneyMilestoneView()
+            // Tab 2: Journey (Progress dashboard: streak, credits, this week, last 5 weeks)
+            JourneyView()
                 .environmentObject(authService)
                 .tabItem {
                     Label("Journey", systemImage: "chart.line.uptrend.xyaxis")

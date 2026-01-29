@@ -47,6 +47,44 @@ class PrayerLogFirestoreService {
         #endif
     }
     
+    // MARK: - Fetch Prayer Logs Once (no listener)
+    
+    /// One-shot fetch for a date range. Use for Journey to avoid listeners and race conditions.
+    func fetchPrayerLogsOnce(weekStart: Date, weekEnd: Date) async throws -> [PrayerLog] {
+        let uid = try requireUID()
+        let startTimestamp = Timestamp(date: weekStart)
+        let endTimestamp = Timestamp(date: weekEnd)
+        
+        let snapshot = try await db.collection("users").document(uid)
+            .collection("prayers")
+            .whereField("date", isGreaterThanOrEqualTo: startTimestamp)
+            .whereField("date", isLessThanOrEqualTo: endTimestamp)
+            .getDocuments()
+        
+        let logs = snapshot.documents.compactMap { doc -> PrayerLog? in
+            let data = doc.data()
+            guard let date = (data["date"] as? Timestamp)?.dateValue(),
+                  let prayerTypeRaw = data["prayerType"] as? String,
+                  let prayerType = PrayerType(rawValue: prayerTypeRaw),
+                  let statusRaw = data["status"] as? String,
+                  let status = PrayerStatus(rawValue: statusRaw) else {
+                return nil
+            }
+            return PrayerLog(
+                id: doc.documentID,
+                date: date,
+                prayerType: prayerType,
+                status: status
+            )
+        }
+        
+        #if DEBUG
+        print("📖 Journey: loaded logs count=\(logs.count)")
+        #endif
+        
+        return logs
+    }
+    
     // MARK: - Load Prayer Logs (with listener)
     
     func loadPrayerLogs(weekStart: Date, weekEnd: Date, completion: @escaping ([PrayerLog]) -> Void) -> ListenerRegistration? {

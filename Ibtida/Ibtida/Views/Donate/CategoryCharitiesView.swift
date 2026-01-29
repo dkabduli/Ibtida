@@ -249,28 +249,42 @@ struct CategoryCharitiesView: View {
 struct PremiumCharityCard: View {
     let charity: Charity
     let categoryColor: Color
-    @State private var showSafari = false
-    @State private var showMissingURLAlert = false
+    @State private var showIntake = false
     @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         VStack(alignment: .leading, spacing: AppSpacing.lg) {
             // Header row
             HStack(alignment: .top, spacing: AppSpacing.md) {
-                // Charity info
+                // Charity info - tappable organization name
                 VStack(alignment: .leading, spacing: AppSpacing.xs) {
-                    HStack(spacing: AppSpacing.sm) {
-                        Text(charity.name)
-                            .font(AppTypography.bodyBold)
-                            .foregroundColor(.primary)
-                            .lineLimit(2)
-                        
-                        if charity.verified {
-                            Image(systemName: "checkmark.seal.fill")
-                                .font(.system(size: 16))
-                                .foregroundColor(.blue)
+                    Button(action: {
+                        HapticFeedback.light()
+                        showIntake = true
+                    }) {
+                        HStack(spacing: AppSpacing.sm) {
+                            Text(charity.name)
+                                .font(AppTypography.bodyBold)
+                                .foregroundColor(.primary)
+                                .lineLimit(2)
+                                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+
+                            if charity.verified {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(.blue)
+                            }
+
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.secondary)
                         }
+                        .contentShape(Rectangle())
+                        .frame(minHeight: 44)
                     }
+                    .buttonStyle(PlainButtonStyle())
+                    .accessibilityLabel("Donate to \(charity.name)")
+                    .accessibilityHint("Opens donation form for this organization")
                     
                     if let city = charity.city {
                         HStack(spacing: AppSpacing.xs) {
@@ -320,35 +334,29 @@ struct PremiumCharityCard: View {
                     }
                 }
             }
-            
-            // Donate button
-            Button(action: {
-                HapticFeedback.medium()
-                if charity.donationURL != nil {
-                    showSafari = true
-                } else {
-                    showMissingURLAlert = true
+
+            // Secondary: open organization website (optional)
+            if charity.websiteURL != nil || charity.donationURL != nil {
+                Button(action: {
+                    HapticFeedback.light()
+                    let urlString = charity.websiteURL ?? charity.donationURL
+                    if let url = urlString.flatMap({ URL(string: $0) }) {
+                        UIApplication.shared.open(url)
+                    }
+                }) {
+                    HStack(spacing: AppSpacing.xs) {
+                        Image(systemName: "safari")
+                            .font(.system(size: 14))
+                        Text("Website")
+                            .font(AppTypography.caption)
+                    }
+                    .foregroundColor(.accentColor)
+                    .padding(.vertical, AppSpacing.xs)
                 }
-            }) {
-                HStack(spacing: AppSpacing.sm) {
-                    Image(systemName: "heart.fill")
-                    Text("Support This Need")
-                    Spacer()
-                    Image(systemName: "arrow.up.right")
-                }
-                .font(AppTypography.bodyBold)
-                .foregroundColor(.white)
-                .padding()
-                .background(
-                    LinearGradient(
-                        colors: [categoryColor, categoryColor.opacity(0.8)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .cornerRadius(12)
+                .buttonStyle(PlainButtonStyle())
+                .accessibilityLabel("Open \(charity.name) website")
+                .accessibilityHint("Opens the organization website in Safari")
             }
-            .buttonStyle(SmoothButtonStyle())
         }
         .padding(AppSpacing.lg)
         .background(
@@ -372,15 +380,8 @@ struct PremiumCharityCard: View {
             x: 0,
             y: colorScheme == .dark ? 2 : 4
         )
-        .sheet(isPresented: $showSafari) {
-            if let urlString = charity.donationURL, let url = URL(string: urlString) {
-                SafariView(url: url)
-            }
-        }
-        .alert("Donation Link Unavailable", isPresented: $showMissingURLAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("The donation link for this charity is not available at this time. Please visit their website directly.")
+        .sheet(isPresented: $showIntake) {
+            OrganizationIntakeView(charity: charity)
         }
     }
 }

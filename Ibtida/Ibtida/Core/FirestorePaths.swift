@@ -102,6 +102,25 @@ enum FirestorePaths {
     /// Global charities collection
     static let charities = "charities"
     
+    // MARK: - Organization Intakes
+    
+    /// Global organization intakes collection
+    static let organizationIntakes = "organizationIntakes"
+    
+    /// Organization intake document path
+    static func organizationIntakeDocument(intakeId: String) -> String {
+        "\(organizationIntakes)/\(intakeId)"
+    }
+    
+    // MARK: - Payments (server-owned)
+    
+    /// Global payments collection (keyed by paymentIntentId)
+    static let payments = "payments"
+    
+    static func paymentDocument(paymentIntentId: String) -> String {
+        "\(payments)/\(paymentIntentId)"
+    }
+    
     // MARK: - Helper Functions
     
     /// Format date to string for document IDs (timezone-aware)
