@@ -64,3 +64,9 @@ firebase/functions/firebase-debug.log
 # Xcode user files
 *.xcuserstate
 *.xcuserdata/
+
+# Firebase
+firebase/functions/node_modules/
+firebase/functions/.firebase/
+firebase/.firebase/
+firebase/functions/firebase-debug.log
