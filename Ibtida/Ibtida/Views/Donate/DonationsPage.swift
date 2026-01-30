@@ -11,7 +11,8 @@ import FirebaseAuth
 
 struct DonationsPage: View {
     @EnvironmentObject var authService: AuthService
-    @StateObject private var requestsViewModel = CommunityRequestsViewModel()
+    /// User's own donation requests (users/{uid}/requests); no global community feed for regular users.
+    @StateObject private var myRequestsViewModel = RequestsViewModel()
     @StateObject private var creditConversionViewModel = CreditConversionViewModel()
     @Environment(\.colorScheme) var colorScheme
     @State private var selectedSection: DonationSection = .overview
@@ -19,7 +20,7 @@ struct DonationsPage: View {
     
     enum DonationSection: String, CaseIterable {
         case overview = "Overview"
-        case requests = "Requests"
+        case requests = "My Requests"
         case charities = "Charities"
         case creditConversion = "Convert Credits"
         
@@ -60,12 +61,10 @@ struct DonationsPage: View {
             .navigationTitle("Donations")
             .navigationBarTitleDisplayMode(.large)
             .onAppear {
-                Task {
-                    await requestsViewModel.loadRequests()
-                }
+                myRequestsViewModel.loadRequests()
             }
             .sheet(isPresented: $showCreateRequest) {
-                WarmCreateRequestSheet(viewModel: requestsViewModel)
+                CreateRequestView(viewModel: myRequestsViewModel)
             }
         }
     }
@@ -115,7 +114,7 @@ struct DonationsPage: View {
                 }
                 .padding(.horizontal, 20)
             }
-            .onChange(of: selectedSection) { newSection in
+            .onChange(of: selectedSection) { _, newSection in
                 // Ensure selected section is visible when changed
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     withAnimation(.easeInOut(duration: 0.3)) {
@@ -191,7 +190,7 @@ struct DonationsPage: View {
             HStack(spacing: 14) {
                 WarmQuickActionButton(
                     icon: "hand.raised.fill",
-                    title: "View Requests",
+                    title: "My Requests",
                     color: .softTerracotta
                 ) {
                     selectedSection = .requests
@@ -211,7 +210,7 @@ struct DonationsPage: View {
     private var featuredRequestsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                WarmSectionHeader("Recent Requests", icon: "sparkles")
+                WarmSectionHeader("My Requests", icon: "sparkles")
                 
                 Spacer()
                 
@@ -222,7 +221,7 @@ struct DonationsPage: View {
                 .foregroundColor(.mutedGold)
             }
             
-            if requestsViewModel.requests.isEmpty {
+            if myRequestsViewModel.requests.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "tray")
                         .font(.system(size: 28))
@@ -237,20 +236,19 @@ struct DonationsPage: View {
                 .warmCard(elevation: .low)
             } else {
                 VStack(spacing: 12) {
-                    ForEach(requestsViewModel.requests.prefix(3)) { request in
-                        WarmRequestPreviewCard(request: request)
+                    ForEach(myRequestsViewModel.requests.prefix(3)) { request in
+                        RequestCard(request: request)
                     }
                 }
             }
         }
     }
     
-    // MARK: - Requests Content
+    // MARK: - Requests Content (user's own requests only)
     
     private var requestsContent: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 20) {
-                // Create request button
                 if authService.isLoggedIn {
                     Button(action: { showCreateRequest = true }) {
                         HStack(spacing: 10) {
@@ -270,23 +268,15 @@ struct DonationsPage: View {
                     signInPromptCard
                 }
                 
-                // Requests list
-                if requestsViewModel.isLoading {
+                if myRequestsViewModel.isLoading {
                     ProgressView()
                         .tint(.mutedGold)
                         .padding(40)
-                } else if requestsViewModel.requests.isEmpty {
+                } else if myRequestsViewModel.requests.isEmpty {
                     emptyRequestsView
                 } else {
-                    ForEach(requestsViewModel.requests) { request in
-                        WarmCommunityRequestCard(
-                            request: request,
-                            onReport: {
-                                Task {
-                                    await requestsViewModel.reportRequest(requestId: request.id, reason: nil)
-                                }
-                            }
-                        )
+                    ForEach(myRequestsViewModel.requests) { request in
+                        RequestCard(request: request)
                     }
                 }
             }
@@ -294,7 +284,7 @@ struct DonationsPage: View {
             .padding(.bottom, 32)
         }
         .refreshable {
-            await requestsViewModel.loadRequests()
+            myRequestsViewModel.loadRequests()
         }
     }
     

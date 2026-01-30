@@ -18,6 +18,7 @@ if (process.env.FUNCTIONS_EMULATOR === "true" || !process.env.GCLOUD_PROJECT) {
 }
 
 const {onRequest} = require("firebase-functions/https");
+const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {defineSecret} = require("firebase-functions/params");
 const {setGlobalOptions} = require("firebase-functions");
 const logger = require("firebase-functions/logger");
@@ -451,6 +452,33 @@ exports.stripeWebhook = onRequest(
     res.status(200).json({received: true});
   },
 );
+
+// ----- setAdminRole (callable v2; admin-only) -----
+// Caller must have custom claim admin === true. Sets { admin: true } for the user identified by email.
+// Prefer setting admin once via the local script (scripts/set-admin-claims.js); use this to add more admins.
+exports.setAdminRole = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Must be signed in.");
+  }
+  const callerAdmin = request.auth.token.admin === true;
+  if (!callerAdmin) {
+    throw new HttpsError("permission-denied", "Only an existing admin can set admin role.");
+  }
+  const email = request.data && typeof request.data.email === "string" ? request.data.email.trim() : null;
+  if (!email || email.length === 0) {
+    throw new HttpsError("invalid-argument", "email (string) is required.");
+  }
+  let userRecord;
+  try {
+    userRecord = await admin.auth().getUserByEmail(email);
+  } catch (e) {
+    logger.warn("setAdminRole: getUserByEmail failed", {email, message: e && e.message});
+    throw new HttpsError("not-found", "No user found with that email.");
+  }
+  await admin.auth().setCustomUserClaims(userRecord.uid, {admin: true});
+  logger.info("setAdminRole: admin claim set", {uid: userRecord.uid, email: userRecord.email});
+  return {success: true, uid: userRecord.uid, email: userRecord.email};
+});
 
 // ----- finalizeDonation (HTTP, auth required) -----
 // Client calls after PaymentSheet .completed. Verifies PI with Stripe, writes user receipt (idempotent with webhook).

@@ -72,7 +72,7 @@ struct IbtidaApp: App {
                 // This is the ONLY place preferredColorScheme is applied
                 // Mapping: system → nil (follows iOS), light → .light, dark → .dark
                 .preferredColorScheme(themeManager.colorScheme)
-                .onChange(of: themeManager.appAppearanceRaw) { _ in
+                .onChange(of: themeManager.appAppearanceRaw) { _, _ in
                     // Appearance changed - refresh UI
                     themeManager.refreshColorScheme()
                 }
@@ -121,7 +121,7 @@ struct RootView: View {
         .animation(.easeInOut(duration: 0.3), value: authService.isLoadingAuth)
         .animation(.easeInOut(duration: 0.3), value: authService.isLoggedIn)
         .animation(.easeInOut(duration: 0.3), value: showOnboarding)
-        .onChange(of: authService.isLoggedIn) { isLoggedIn in
+        .onChange(of: authService.isLoggedIn) { _, isLoggedIn in
             if isLoggedIn {
                 loadUserProfile()
             } else {

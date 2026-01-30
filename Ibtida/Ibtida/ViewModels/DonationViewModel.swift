@@ -92,7 +92,8 @@ class DonationViewModel: ObservableObject {
                 .getDocuments()
             
             let donations = snapshot.documents.compactMap { doc -> Donation? in
-                guard let data = doc.data() as? [String: Any],
+                let data = doc.data()
+                guard
                       let charityId = data["charityId"] as? String,
                       let amount = data["amount"] as? Double,
                       let methodRaw = data["method"] as? String,
@@ -139,7 +140,8 @@ class DonationViewModel: ObservableObject {
                 .getDocuments()
             
             let loadedReceipts = snapshot.documents.compactMap { doc -> Receipt? in
-                guard let data = doc.data() as? [String: Any],
+                let data = doc.data()
+                guard
                       let donationId = data["donationId"] as? String,
                       let charityId = data["charityId"] as? String,
                       let charityName = data["charityName"] as? String,
@@ -186,7 +188,8 @@ class DonationViewModel: ObservableObject {
                 .getDocuments()
             
             let requests = snapshot.documents.compactMap { doc -> DonationRequest? in
-                guard let data = doc.data() as? [String: Any],
+                let data = doc.data()
+                guard
                       let userId = data["userId"] as? String,
                       let title = data["title"] as? String,
                       let description = data["description"] as? String,

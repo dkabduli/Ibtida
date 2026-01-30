@@ -78,16 +78,25 @@ enum PrayerStatus: String, CaseIterable, Identifiable, Codable {
     
     var id: String { rawValue }
     
+    /// Default display name (use displayName(for: gender) for gender-specific labels).
     var displayName: String {
+        displayName(for: nil)
+    }
+
+    /// Gender-specific display label for prayer logging. Store enum raw value to Firestore; change wording here without breaking history.
+    /// Brothers: In masjid (jamat), On time, Qada, Missed, Not logged.
+    /// Sisters: At home (on time), Qada, Missed, Not applicable 🩸. "Not logged" for default/empty.
+    /// Legacy "late" maps to "On time" for brothers for migration.
+    func displayName(for gender: UserGender?) -> String {
         switch self {
-        case .none: return "Not yet logged"
+        case .none: return "Not logged"
         case .onTime: return "On time"
-        case .late: return "Later"
-        case .qada: return "Made up"
-        case .missed: return "Not logged" // Gentle: avoids "missed" or "failed"
-        case .prayedAtMasjid: return "At masjid"
-        case .prayedAtHome: return "At home"
-        case .menstrual: return "Not applicable" // Respectful, neutral
+        case .late: return gender == .brother ? "On time" : "Later" // Legacy: map to On time for brother
+        case .qada: return "Qada"
+        case .missed: return "Missed"
+        case .prayedAtMasjid: return "In masjid (jamat)"
+        case .prayedAtHome: return "At home (on time)"
+        case .menstrual: return "Not applicable 🩸"
         }
     }
     
@@ -139,14 +148,24 @@ enum PrayerStatus: String, CaseIterable, Identifiable, Codable {
         }
     }
     
-    // MARK: - Gender-Specific Status Lists
-    
+    // MARK: - Gender-Specific Status Lists (only these options shown in picker)
+    /// Brothers: In masjid (jamat), On time, Qada, Missed, Not logged. Stored as enum raw value in Firestore.
     static func statusesForBrother() -> [PrayerStatus] {
-        return [.onTime, .late, .qada, .prayedAtMasjid, .missed]
+        return [.prayedAtMasjid, .onTime, .qada, .missed, .none]
     }
-    
+    /// Sisters: At home (on time), Qada, Missed, Not applicable 🩸. Not applicable 🩸 does not penalize streaks.
     static func statusesForSister() -> [PrayerStatus] {
-        return [.onTime, .late, .qada, .prayedAtHome, .menstrual, .missed]
+        return [.prayedAtHome, .qada, .missed, .menstrual]
+    }
+
+    /// Parse status from Firestore with best-effort migration for legacy/unknown values. Do not crash on unknown strings.
+    static func fromFirestore(_ raw: String) -> PrayerStatus {
+        if let status = PrayerStatus(rawValue: raw) { return status }
+        switch raw.lowercased() {
+        case "later": return .late
+        case "made up", "madeup": return .qada
+        default: return .none
+        }
     }
 }
 

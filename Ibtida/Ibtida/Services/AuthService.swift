@@ -21,6 +21,8 @@ class AuthService: ObservableObject {
     @Published var isLoadingAuth: Bool = true
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
+    /// Admin flag from Firebase Auth custom claims (admin: true). Set server-side only; UI hides admin features when false.
+    @Published var isAdmin: Bool = false
     
     // MARK: - Computed Properties
     
@@ -111,6 +113,9 @@ class AuthService: ObservableObject {
                 // Handle login
                 if let firebaseUser = firebaseUser {
                     await self.handleUserLogin(firebaseUser: firebaseUser)
+                    await self.refreshAdminClaim()
+                } else {
+                    self.isAdmin = false
                 }
                 
                 // Mark auth as loaded
@@ -390,19 +395,42 @@ class AuthService: ObservableObject {
     // MARK: - Refresh User
     
     func refreshUser() async {
-        // Reload the user from Firebase Auth
-        // NOTE: Do NOT assign to currentUser - it's a computed property
-        // Instead, update self.user
         do {
             try await Auth.auth().currentUser?.reload()
             self.user = Auth.auth().currentUser
-            
+            await refreshAdminClaim()
             #if DEBUG
             print("🔄 AuthService: User refreshed")
             #endif
         } catch {
             #if DEBUG
             print("❌ AuthService: Failed to refresh user - \(error)")
+            #endif
+        }
+    }
+    
+    // MARK: - Admin Claim (Custom Claims)
+    
+    /// Fetches ID token (with optional force refresh) and updates isAdmin from custom claims.
+    /// Call after login; after server-side claim changes, user should sign out/in or call with forceRefresh: true.
+    func refreshAdminClaim(forceRefresh: Bool = false) async {
+        guard let user = Auth.auth().currentUser else {
+            await MainActor.run { self.isAdmin = false }
+            return
+        }
+        do {
+            let result = try await user.getIDTokenResult(forcingRefresh: forceRefresh)
+            let admin = (result.claims["admin"] as? Bool) ?? false
+            await MainActor.run {
+                self.isAdmin = admin
+                #if DEBUG
+                print("🔐 Admin claim: \(admin)")
+                #endif
+            }
+        } catch {
+            await MainActor.run { self.isAdmin = false }
+            #if DEBUG
+            print("❌ AuthService: Failed to get ID token for admin claim - \(error)")
             #endif
         }
     }

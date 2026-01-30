@@ -15,6 +15,7 @@ struct PrayerSelectionItem: Identifiable {
 }
 
 struct HomeView: View {
+    @EnvironmentObject var themeManager: ThemeManager
     @StateObject private var viewModel = HomeViewModel()
     @State private var selectedPrayerItem: PrayerSelectionItem?
     
@@ -54,7 +55,8 @@ struct HomeView: View {
                 PrayerStatusPickerSheet(
                     date: selection.date,
                     prayer: selection.prayer,
-                    currentStatus: viewModel.prayerLogs.first(where: { $0.date == selection.date && $0.prayerType == selection.prayer })?.status ?? .missed,
+                    userGender: themeManager.userGender,
+                    currentStatus: viewModel.prayerLogs.first(where: { $0.date == selection.date && $0.prayerType == selection.prayer })?.status ?? .none,
                     onSelect: { status in
                         #if DEBUG
                         print("📥 HomeView: prayer status selected \(selection.prayer.rawValue) -> \(status.rawValue)")
@@ -610,10 +612,15 @@ struct PrayerDayCircle: View {
 struct PrayerStatusPickerSheet: View {
     let date: Date
     let prayer: PrayerType
+    var userGender: UserGender? = nil
     let currentStatus: PrayerStatus
     let onSelect: (PrayerStatus) -> Void
     
     @Environment(\.dismiss) var dismiss
+    
+    private var availableStatuses: [PrayerStatus] {
+        userGender == .sister ? PrayerStatus.statusesForSister() : PrayerStatus.statusesForBrother()
+    }
     
     var body: some View {
         NavigationStack {
@@ -623,7 +630,7 @@ struct PrayerStatusPickerSheet: View {
                     .padding()
                 
                 VStack(spacing: AppSpacing.md) {
-                    ForEach([PrayerStatus.onTime, .late, .missed, .qada], id: \.self) { status in
+                    ForEach(availableStatuses, id: \.self) { status in
                         Button(action: {
                             onSelect(status)
                             dismiss()
@@ -633,7 +640,7 @@ struct PrayerStatusPickerSheet: View {
                                     .fill(statusColor(status))
                                     .frame(width: 20, height: 20)
                                 
-                                Text(status.displayName)
+                                Text(status.displayName(for: userGender))
                                     .font(AppTypography.body)
                                 
                                 Spacer()

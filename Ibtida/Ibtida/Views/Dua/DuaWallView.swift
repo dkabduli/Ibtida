@@ -37,7 +37,7 @@ struct DuaWallView: View {
             }
             .onAppear { handleOnAppear() }
             .refreshable { await refreshData() }
-            .onChange(of: Calendar.current.component(.day, from: Date())) { _ in
+            .onChange(of: Calendar.current.component(.day, from: Date())) { _, _ in
                 // Detect date change (midnight reset)
                 handleDateChange()
             }
@@ -79,7 +79,11 @@ struct DuaWallView: View {
                 duasList
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.top, 12)
+            .padding(.bottom, 32)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            Color.clear.frame(height: 24)
         }
     }
     
@@ -262,7 +266,7 @@ struct DuaWallView: View {
             await viewModel.loadDailyDua()
             // Reset dismissal state for new day
             isDailyDuaDismissed = false
-            await checkDailyDuaDismissal()
+            checkDailyDuaDismissal()
         }
     }
     

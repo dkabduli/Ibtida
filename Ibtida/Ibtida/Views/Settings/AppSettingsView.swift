@@ -63,7 +63,7 @@ struct AppSettingsView: View {
                     Text("Dark").tag(AppAppearance.dark.rawValue)
                 }
                 .pickerStyle(.segmented)
-                .onChange(of: themeManager.appAppearanceRaw) { _ in
+                .onChange(of: themeManager.appAppearanceRaw) { _, _ in
                     HapticFeedback.light()
                     // Appearance change triggers refresh automatically via didSet
                 }
@@ -211,14 +211,8 @@ struct AppSettingsView: View {
     // MARK: - Actions
     
     private func signOut() {
-        Task {
-            do {
-                try authService.signOut()
-                dismiss()
-            } catch {
-                print("Error signing out: \(error)")
-            }
-        }
+        authService.signOut()
+        dismiss()
     }
 }
 

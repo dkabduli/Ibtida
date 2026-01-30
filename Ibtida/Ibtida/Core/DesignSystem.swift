@@ -20,6 +20,25 @@ enum AppSpacing {
     static let xxxl: CGFloat = 32
 }
 
+// MARK: - Tab Bar Clearance (shared by Home, Journey, and other tab content)
+
+/// Height to reserve at the bottom so content never clips under the tab bar.
+/// Tab bar ~49pt + home indicator ~34pt + small buffer. Apply to the *container* (e.g. ZStack
+/// wrapping the ScrollView) so the scroll view's frame ends above the tab bar.
+enum TabBarLayout {
+    static let clearanceHeight: CGFloat = 96
+}
+
+extension View {
+    /// Reserves bottom space so scroll content (e.g. last card) is never hidden behind the tab bar.
+    /// Use on the ScrollView that contains tab content. Matches Home + Journey layout system.
+    func tabBarScrollClearance() -> some View {
+        safeAreaInset(edge: .bottom, spacing: 0) {
+            Color.clear.frame(height: TabBarLayout.clearanceHeight)
+        }
+    }
+}
+
 // MARK: - Typography
 
 enum AppTypography {

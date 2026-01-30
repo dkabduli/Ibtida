@@ -67,17 +67,40 @@ enum FirestorePaths {
         "\(dailyDuas)/\(dateString)"
     }
     
-    // MARK: - Requests (Community Donation Requests)
+    // MARK: - User Requests (per-user donation/dua requests; user sees only their own)
     
-    /// Global requests collection
+    /// User's requests subcollection: users/{uid}/requests
+    static let userRequests = "requests"
+    
+    static func userRequestsCollection(uid: String) -> String {
+        "\(users)/\(uid)/\(userRequests)"
+    }
+    
+    // MARK: - Global Requests (admin-only; do not expose to regular users)
+    
+    /// Global community requests collection (admin read/write only; used for admin moderation)
     static let requests = "requests"
     
-    /// Request document path
     static func requestDocument(requestId: String) -> String {
         "\(requests)/\(requestId)"
     }
     
-    // MARK: - Reports (Moderation)
+    // MARK: - Admin Collections (admin-only read/write via rules)
+    
+    static let admin = "admin"
+    static let adminRequestsIndex = "requestsIndex"
+    static let adminSettings = "settings"
+    static let adminCreditConversion = "creditConversion"
+    
+    static func adminRequestsIndexDoc(requestId: String) -> String {
+        "\(admin)/\(adminRequestsIndex)/\(requestId)"
+    }
+    
+    static func adminSettingsCreditConversion() -> String {
+        "\(admin)/\(adminSettings)/\(adminCreditConversion)"
+    }
+    
+    // MARK: - Reports (Moderation; create by any auth user; read by admin only)
     
     /// Global reports collection
     static let reports = "reports"

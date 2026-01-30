@@ -362,7 +362,8 @@ class HomePrayerViewModel: ObservableObject {
             )
         }
         newPrayerDay.setStatus(status, for: prayer)
-        newPrayerDay.isMenstrualDay = isMenstrualDay // Mark as menstrual day if mode is enabled
+        // Streak-safe: day is menstrual if profile toggle is on OR any prayer is "Not applicable 🩸"
+        newPrayerDay.isMenstrualDay = isMenstrualDay || newPrayerDay.allStatuses.contains(.menstrual)
         
         // Recalculate credits with bonuses
         let accountAgeDays = accountAgeInDays()
@@ -487,7 +488,7 @@ class HomePrayerViewModel: ObservableObject {
         
         // Use timezone-aware dayId consistently - SINGLE SOURCE OF TRUTH
         // dayId is the document ID and also stored as field for querying
-        var prayerDayData: [String: Any] = [
+        let prayerDayData: [String: Any] = [
             "dayId": dayId, // Primary date identifier (timezone-aware, yyyy-MM-dd format)
             "date": Timestamp(date: prayerDay.date), // Firestore Timestamp for querying by date range
             "fajrStatus": prayerDay.fajrStatus.rawValue,
@@ -540,21 +541,21 @@ class HomePrayerViewModel: ObservableObject {
         
         var prayerDay = PrayerDay(dateString: dateString, date: date)
         
-        // Safely parse each status with fallback to .none
-        if let fajr = data["fajrStatus"] as? String, let status = PrayerStatus(rawValue: fajr) {
-            prayerDay.fajrStatus = status
+        // Safely parse each status with migration for legacy values (fromFirestore maps unknown to .none)
+        if let fajr = data["fajrStatus"] as? String {
+            prayerDay.fajrStatus = PrayerStatus.fromFirestore(fajr)
         }
-        if let dhuhr = data["dhuhrStatus"] as? String, let status = PrayerStatus(rawValue: dhuhr) {
-            prayerDay.dhuhrStatus = status
+        if let dhuhr = data["dhuhrStatus"] as? String {
+            prayerDay.dhuhrStatus = PrayerStatus.fromFirestore(dhuhr)
         }
-        if let asr = data["asrStatus"] as? String, let status = PrayerStatus(rawValue: asr) {
-            prayerDay.asrStatus = status
+        if let asr = data["asrStatus"] as? String {
+            prayerDay.asrStatus = PrayerStatus.fromFirestore(asr)
         }
-        if let maghrib = data["maghribStatus"] as? String, let status = PrayerStatus(rawValue: maghrib) {
-            prayerDay.maghribStatus = status
+        if let maghrib = data["maghribStatus"] as? String {
+            prayerDay.maghribStatus = PrayerStatus.fromFirestore(maghrib)
         }
-        if let isha = data["ishaStatus"] as? String, let status = PrayerStatus(rawValue: isha) {
-            prayerDay.ishaStatus = status
+        if let isha = data["ishaStatus"] as? String {
+            prayerDay.ishaStatus = PrayerStatus.fromFirestore(isha)
         }
         
         // Safely parse optional fields
@@ -588,7 +589,7 @@ class HomePrayerViewModel: ObservableObject {
         
         // Get date range for last 5 weeks (timezone-aware)
         let (startDate, endDate) = DateUtils.dateRangeForLastNWeeks(5)
-        let weekStarts = DateUtils.lastNWeekStarts(5)
+        _ = DateUtils.lastNWeekStarts(5)
         
         AppLog.network("Loading last 5 weeks - Date range: \(DateUtils.logString(for: startDate)) to \(DateUtils.logString(for: endDate))")
         

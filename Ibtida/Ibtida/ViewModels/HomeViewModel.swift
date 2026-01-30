@@ -176,7 +176,7 @@ class HomeViewModel: ObservableObject {
     // MARK: - Load Prayer Logs
     
     func loadPrayerLogs() async {
-        guard let uid = Auth.auth().currentUser?.uid else {
+        guard Auth.auth().currentUser?.uid != nil else {
             #if DEBUG
             print("⚠️ HomeViewModel: Cannot load prayer logs - user not authenticated")
             #endif

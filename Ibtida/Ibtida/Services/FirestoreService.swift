@@ -36,7 +36,7 @@ class FirestoreService {
     }
     
     func removeAllListeners() {
-        for (key, listener) in listeners {
+        for (_, listener) in listeners {
             listener.remove()
         }
         listeners.removeAll()

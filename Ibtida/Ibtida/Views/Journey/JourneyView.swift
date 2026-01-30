@@ -3,12 +3,36 @@
 //  Ibtida
 //
 //  Journey progress dashboard: header summary, this week, last 5 weeks, milestones.
+//  Layout and typography aligned with Home (DesignSystem, AppSpacing, WarmSectionHeader).
 //
 
 import SwiftUI
 
+// MARK: - Journey Layout (matches Home horizontal padding and spacing)
+
+private enum JourneyLayout {
+    /// Horizontal padding for content; slightly more than Home so boxes don't feel cut off
+    static let horizontalPadding: CGFloat = 24
+    /// Vertical spacing between sections; matches HomePrayerView VStack spacing (24)
+    static let sectionSpacing: CGFloat = 24
+    /// Internal card padding; slightly reduced so cards fit comfortably
+    static let cardPadding: CGFloat = 18
+    /// Summary bubble grid: same column count as Home prayer circles (3)
+    static let summaryColumnCount = 3
+    /// Grid spacing; DesignSystem AppSpacing.md (12)
+    static let gridSpacing: CGFloat = AppSpacing.md
+    /// Max width per summary bubble; kept smaller so 3 fit on screen without clipping
+    static let summaryBubbleMaxWidth: CGFloat = 140
+    /// Min width per summary bubble on small phones
+    static let summaryBubbleMinWidth: CGFloat = 76
+    /// Last-5-weeks card width (horizontal scroller); slightly smaller to fit page
+    static let weekCardWidth: CGFloat = 128
+    /// Bottom padding inside scroll content (matches Home .padding(.bottom, 32))
+    static let bottomInset: CGFloat = 32
+}
+
 struct JourneyView: View {
-    @StateObject private var viewModel = JourneyViewModel()
+    @StateObject private var viewModel = JourneyViewModel(prayerService: PrayerLogFirestoreService.shared, profileService: UserProfileFirestoreService.shared)
     @EnvironmentObject var authService: AuthService
     @Environment(\.colorScheme) var colorScheme
 
@@ -18,6 +42,7 @@ struct JourneyView: View {
                 WarmBackgroundView()
                 mainContent
             }
+            .tabBarScrollClearance()
             .navigationTitle("Journey")
             .navigationBarTitleDisplayMode(.large)
             .onAppear { viewModel.loadIfNeeded() }
@@ -48,7 +73,7 @@ struct JourneyView: View {
         }
     }
 
-    // MARK: - Sign-in prompt
+    // MARK: - Sign-in prompt (matches HomePrayerView signInPrompt styling)
 
     private var signInPrompt: some View {
         VStack(spacing: 28) {
@@ -57,106 +82,103 @@ struct JourneyView: View {
                     .fill(Color.mutedGold.opacity(0.15))
                     .frame(width: 100, height: 100)
                 Image(systemName: "chart.line.uptrend.xyaxis")
-                    .font(.system(size: 45))
+                    .font(.system(size: 50))
                     .foregroundColor(.mutedGold)
             }
             VStack(spacing: 12) {
                 Text("Your Journey Awaits")
-                    .font(.system(size: 24, weight: .semibold, design: .rounded))
+                    .font(AppTypography.title2)
                     .foregroundColor(Color.warmText(colorScheme))
                 Text("Sign in to track your progress")
-                    .font(.system(size: 16))
+                    .font(AppTypography.subheadline)
                     .foregroundColor(Color.warmSecondaryText(colorScheme))
+                    .multilineTextAlignment(.center)
             }
         }
         .padding(48)
     }
 
-    // MARK: - Skeleton (no blank screen)
+    // MARK: - Skeleton (same layout as main content; matches Home spacing and proportions)
 
     private var skeletonView: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 24) {
-                // Section 1 skeleton
-                VStack(alignment: .leading, spacing: 12) {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.warmSurface(colorScheme).opacity(0.6))
-                        .frame(width: 120, height: 28)
-                    RoundedRectangle(cornerRadius: 8)
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: JourneyLayout.sectionSpacing) {
+                // Header placeholder: subtitle + 3 summary bubbles
+                VStack(alignment: .leading, spacing: AppSpacing.sm) {
+                    RoundedRectangle(cornerRadius: 6)
                         .fill(Color.warmSurface(colorScheme).opacity(0.5))
-                        .frame(width: 180, height: 20)
-                    HStack(spacing: 12) {
+                        .frame(width: 220, height: 16)
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: JourneyLayout.gridSpacing), count: JourneyLayout.summaryColumnCount), spacing: JourneyLayout.gridSpacing) {
                         ForEach(0..<3, id: \.self) { _ in
                             RoundedRectangle(cornerRadius: 12)
                                 .fill(Color.warmSurface(colorScheme).opacity(0.5))
-                                .frame(height: 64)
-                                .frame(maxWidth: .infinity)
+                                .frame(minWidth: JourneyLayout.summaryBubbleMinWidth, maxWidth: JourneyLayout.summaryBubbleMaxWidth)
+                                .frame(minHeight: 56)
                         }
                     }
                 }
-                .padding(.horizontal, 20)
-
-                // Section 2 skeleton
-                VStack(alignment: .leading, spacing: 12) {
-                    RoundedRectangle(cornerRadius: 8)
+                // Current week card placeholder
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.warmSurface(colorScheme).opacity(0.5))
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 100)
+                // Last 5 weeks placeholder
+                VStack(alignment: .leading, spacing: AppSpacing.md) {
+                    RoundedRectangle(cornerRadius: 6)
                         .fill(Color.warmSurface(colorScheme).opacity(0.5))
-                        .frame(width: 100, height: 22)
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.warmSurface(colorScheme).opacity(0.5))
-                        .frame(height: 120)
-                }
-                .padding(.horizontal, 20)
-
-                // Section 3 skeleton
-                VStack(alignment: .leading, spacing: 12) {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.warmSurface(colorScheme).opacity(0.5))
-                        .frame(width: 140, height: 22)
+                        .frame(width: 120, height: 18)
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(alignment: .top, spacing: 12) {
+                        LazyHStack(alignment: .top, spacing: JourneyLayout.gridSpacing) {
                             ForEach(0..<3, id: \.self) { _ in
-                                RoundedRectangle(cornerRadius: 16)
+                                RoundedRectangle(cornerRadius: 12)
                                     .fill(Color.warmSurface(colorScheme).opacity(0.5))
-                                    .frame(width: 140, height: 100)
+                                    .frame(minWidth: JourneyLayout.weekCardWidth, maxWidth: JourneyLayout.weekCardWidth, minHeight: 80)
                             }
                         }
-                        .padding(.leading, 20)
+                        .padding(.trailing, JourneyLayout.horizontalPadding)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
+                Color.clear.frame(height: 1)
             }
-            .padding(.top, 16)
-            .padding(.bottom, 32)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, JourneyLayout.horizontalPadding)
+            .padding(.top, AppSpacing.lg)
+            .padding(.bottom, JourneyLayout.bottomInset)
         }
     }
 
-    // MARK: - Scroll content (4 sections)
+    // MARK: - Scroll content (single root ScrollView; same spacing as Home)
 
     private var scrollContent: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 24) {
-                section1HeaderSummary
-                section2ThisWeek
-                section3LastFiveWeeks
-                section4Milestones
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: JourneyLayout.sectionSpacing) {
+                HeaderSection
+                CurrentWeekProgressCard
+                Last5WeeksScroller
+                MilestonesSection
+                BottomPaddingSpacer
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
-            .padding(.bottom, 32)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, JourneyLayout.horizontalPadding)
+            .padding(.top, AppSpacing.lg)
+            .padding(.bottom, JourneyLayout.bottomInset)
         }
     }
 
-    // MARK: - Section 1: Header Summary
+    // MARK: - BottomPaddingSpacer (ensures last content clears tab bar when scrolled)
+    private var BottomPaddingSpacer: some View {
+        Color.clear.frame(height: 1)
+    }
 
-    private var section1HeaderSummary: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Journey")
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundColor(Color.warmText(colorScheme))
+    // MARK: - HeaderSection (subtitle + summary grid; title in nav bar; same typography as Home)
+    private var HeaderSection: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.sm) {
             Text("Your prayer consistency over time")
-                .font(.system(size: 15, weight: .medium))
+                .font(AppTypography.subheadline)
                 .foregroundColor(Color.warmSecondaryText(colorScheme))
-
-            HStack(spacing: 12) {
+                .fixedSize(horizontal: false, vertical: true)
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: JourneyLayout.gridSpacing), count: JourneyLayout.summaryColumnCount), spacing: JourneyLayout.gridSpacing) {
                 compactCard(
                     icon: "flame.fill",
                     value: "\(viewModel.userSummary.streakDays)",
@@ -185,10 +207,10 @@ struct JourneyView: View {
                     )
                 }
             }
-            .padding(.top, 4)
+            .padding(.top, AppSpacing.xs)
             if let updated = viewModel.lastUpdated {
                 Text(relativeTimeString(from: updated))
-                    .font(.system(size: 11, weight: .medium))
+                    .font(AppTypography.caption)
                     .foregroundColor(Color.warmSecondaryText(colorScheme).opacity(0.8))
             }
         }
@@ -208,32 +230,33 @@ struct JourneyView: View {
     }
 
     private func compactCard(icon: String, value: String, label: String, color: Color) -> some View {
-        VStack(spacing: 6) {
+        VStack(spacing: AppSpacing.xs) {
             Image(systemName: icon)
-                .font(.system(size: 18))
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(color)
             Text(value)
-                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .font(AppTypography.title3)
                 .foregroundColor(Color.warmText(colorScheme))
                 .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                .minimumScaleFactor(0.65)
             Text(label)
-                .font(.system(size: 11, weight: .medium))
+                .font(AppTypography.caption)
                 .foregroundColor(Color.warmSecondaryText(colorScheme))
         }
+        .frame(minWidth: JourneyLayout.summaryBubbleMinWidth, maxWidth: JourneyLayout.summaryBubbleMaxWidth)
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .padding(.horizontal, 8)
+        .padding(.vertical, AppSpacing.sm + 2)
+        .padding(.horizontal, AppSpacing.sm)
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color.warmSurface(colorScheme))
         )
     }
 
-    // MARK: - Section 2: This Week
+    // MARK: - CurrentWeekProgressCard (same card padding as Home; WarmSectionHeader)
 
-    private var section2ThisWeek: some View {
-        VStack(alignment: .leading, spacing: 14) {
+    private var CurrentWeekProgressCard: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
             WarmSectionHeader("This Week", icon: "calendar")
             if let week = viewModel.currentWeek {
                 if hasNoLogsAtAll(week: week) {
@@ -245,7 +268,8 @@ struct JourneyView: View {
                 emptyWeekPlaceholder
             }
         }
-        .padding(20)
+        .padding(JourneyLayout.cardPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .warmCard(elevation: .medium)
         .accessibleCard(label: "This week's prayer progress")
     }
@@ -255,20 +279,20 @@ struct JourneyView: View {
     }
 
     private var emptyStateCard: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: AppSpacing.lg) {
             Image(systemName: "calendar.badge.plus")
                 .font(.system(size: 36))
                 .foregroundColor(Color.warmSecondaryText(colorScheme).opacity(0.6))
             Text("Your Journey will appear here as you log prayers.")
-                .font(.system(size: 15, weight: .medium))
+                .font(AppTypography.subheadline)
                 .foregroundColor(Color.warmSecondaryText(colorScheme))
                 .multilineTextAlignment(.center)
             Text("Log today in the Home tab")
-                .font(.system(size: 14, weight: .medium))
+                .font(AppTypography.subheadlineBold)
                 .foregroundColor(.mutedGold)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
+        .padding(.vertical, AppSpacing.xxl)
     }
 
     private func weekGrid(week: JourneyWeekSummary) -> some View {
@@ -276,11 +300,11 @@ struct JourneyView: View {
         let dayFormatter = DateFormatter()
         dayFormatter.dateFormat = "d"
         dayFormatter.timeZone = TimeZone.current
-        return VStack(spacing: 10) {
+        return VStack(spacing: AppSpacing.sm) {
             HStack(spacing: 0) {
                 ForEach(Array(dayLabels.enumerated()), id: \.offset) { _, label in
                     Text(label)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(AppTypography.captionBold)
                         .foregroundColor(Color.warmSecondaryText(colorScheme))
                         .frame(maxWidth: .infinity)
                 }
@@ -288,12 +312,12 @@ struct JourneyView: View {
             HStack(spacing: 0) {
                 ForEach(week.daySummaries) { day in
                     Text(dayFormatter.string(from: day.date))
-                        .font(.system(size: 13, weight: .medium))
+                        .font(AppTypography.caption)
                         .foregroundColor(Color.warmText(colorScheme))
                         .frame(maxWidth: .infinity)
                 }
             }
-            HStack(spacing: 4) {
+            HStack(spacing: AppSpacing.xs) {
                 ForEach(week.daySummaries) { day in
                     Button {
                         viewModel.selectDay(date: day.date)
@@ -308,7 +332,7 @@ struct JourneyView: View {
 
     private func dayCell(day: JourneyDaySummary) -> some View {
         let isToday = Calendar.current.isDateInToday(day.date)
-        return VStack(spacing: 4) {
+        return VStack(spacing: AppSpacing.xs) {
             HStack(spacing: 2) {
                 ForEach(0..<5, id: \.self) { i in
                     Circle()
@@ -319,7 +343,7 @@ struct JourneyView: View {
         }
         .frame(height: 36)
         .frame(maxWidth: .infinity)
-        .padding(6)
+        .padding(AppSpacing.xs + 2)
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .fill(isToday ? Color.mutedGold.opacity(0.15) : Color.clear)
@@ -360,22 +384,23 @@ struct JourneyView: View {
         return f.string(from: date)
     }
 
-    // MARK: - Section 3: Last 5 Weeks (left-justified horizontal)
+    // MARK: - Last5WeeksScroller (horizontal, left-justified; same spacing as Home FiveWeekProgressView)
 
-    private var section3LastFiveWeeks: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            WarmSectionHeader("Last 5 Weeks", icon: "calendar.badge.clock")
+    private var Last5WeeksScroller: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
+            WarmSectionHeader("Last 5 Weeks", icon: "chart.bar.fill", subtitle: "Progress overview")
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(alignment: .top, spacing: 12) {
+                LazyHStack(alignment: .top, spacing: JourneyLayout.gridSpacing) {
                     ForEach(viewModel.lastFiveWeeks) { week in
                         lastWeekCard(week: week)
                     }
                 }
-                .padding(.leading, 16)
-                .padding(.trailing, 20)
+                .padding(.trailing, JourneyLayout.horizontalPadding)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibleCard(label: "Last 5 weeks progress")
     }
 
@@ -385,12 +410,13 @@ struct JourneyView: View {
         formatter.timeZone = TimeZone.current
         let startStr = formatter.string(from: week.weekStart)
         let endStr = formatter.string(from: week.weekEnd)
-        return VStack(alignment: .leading, spacing: 10) {
+        let isCurrentWeek = viewModel.currentWeek?.weekStart == week.weekStart
+        return VStack(alignment: .leading, spacing: AppSpacing.sm) {
             Text("\(startStr)–\(endStr)")
-                .font(.system(size: 13, weight: .semibold))
+                .font(AppTypography.captionBold)
                 .foregroundColor(Color.warmText(colorScheme))
             Text("\(week.completedCount)/\(week.totalCount)")
-                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .font(AppTypography.bodyBold)
                 .foregroundColor(Color.warmSecondaryText(colorScheme))
             HStack(spacing: 2) {
                 ForEach(week.daySummaries) { day in
@@ -400,37 +426,44 @@ struct JourneyView: View {
                 }
             }
         }
-        .frame(width: 120, alignment: .leading)
-        .padding(14)
+        .frame(width: JourneyLayout.weekCardWidth, alignment: .leading)
+        .padding(AppSpacing.md)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.warmSurface(colorScheme))
+                .fill(isCurrentWeek ? Color.mutedGold.opacity(0.12) : Color.warmSurface(colorScheme))
         )
-        .accessibilityLabel("Week \(startStr) to \(endStr), \(week.completedCount) of 35 prayers")
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(isCurrentWeek ? Color.mutedGold.opacity(0.4) : Color.clear, lineWidth: 1.5)
+        )
+        .accessibilityLabel("Week \(startStr) to \(endStr), \(week.completedCount) of 35 prayers\(isCurrentWeek ? ", current week" : "")")
     }
 
-    // MARK: - Section 4: Milestones
+    // MARK: - MilestonesSection (same card padding and typography as Home)
 
-    private var section4Milestones: some View {
-        VStack(alignment: .leading, spacing: 14) {
+    private var MilestonesSection: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
             WarmSectionHeader("Milestones", icon: "flag.fill")
-            VStack(spacing: 8) {
+            VStack(spacing: AppSpacing.sm) {
                 ForEach(viewModel.computedMilestones()) { row in
-                    HStack(spacing: 12) {
+                    HStack(alignment: .top, spacing: JourneyLayout.gridSpacing) {
                         Image(systemName: row.achieved ? "checkmark.circle.fill" : "circle")
-                            .font(.system(size: 20))
+                            .font(.system(size: 20, weight: .medium))
                             .foregroundColor(row.achieved ? .prayerOnTime : Color.warmSecondaryText(colorScheme).opacity(0.6))
                         VStack(alignment: .leading, spacing: 2) {
                             Text(row.title)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(AppTypography.subheadlineBold)
                                 .foregroundColor(Color.warmText(colorScheme))
+                                .fixedSize(horizontal: false, vertical: true)
                             Text(row.subtitle)
-                                .font(.system(size: 12))
+                                .font(AppTypography.caption)
                                 .foregroundColor(Color.warmSecondaryText(colorScheme))
+                                .fixedSize(horizontal: false, vertical: true)
                         }
-                        Spacer()
+                        Spacer(minLength: 0)
                     }
-                    .padding(12)
+                    .padding(JourneyLayout.gridSpacing)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .background(
                         RoundedRectangle(cornerRadius: 10)
                             .fill(Color.warmSurface(colorScheme))
@@ -438,21 +471,22 @@ struct JourneyView: View {
                 }
             }
         }
-        .padding(20)
+        .padding(JourneyLayout.cardPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .warmCard(elevation: .medium)
         .accessibleCard(label: "Journey milestones")
     }
 
-    // MARK: - Error banner
+    // MARK: - Error banner (matches Home error styling)
 
     private func errorBanner(_ message: String) -> some View {
         Text(message)
-            .font(.system(size: 14, weight: .medium))
+            .font(AppTypography.subheadline)
             .foregroundColor(.white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.horizontal, AppSpacing.lg)
+            .padding(.vertical, AppSpacing.sm + 2)
             .background(Capsule().fill(Color.softTerracotta))
-            .padding(.top, 8)
+            .padding(.top, AppSpacing.sm)
     }
 }
 
@@ -492,7 +526,7 @@ struct JourneyDayDetailSheet: View {
                             Spacer()
                             if item.status != .none {
                                 VStack(alignment: .trailing, spacing: 2) {
-                                    Text(item.status.displayName)
+                                    Text(item.status.displayName(for: ThemeManager.shared.userGender))
                                         .font(.system(size: 14))
                                         .foregroundColor(Color.warmSecondaryText(colorScheme))
                                     if let ts = item.timestamp {
@@ -529,9 +563,20 @@ struct JourneyDayDetailSheet: View {
     }
 }
 
-// MARK: - Preview
+// MARK: - Previews (small / large device + Dynamic Type)
 
-#Preview {
+#Preview("Journey (default)") {
     JourneyView()
         .environmentObject(AuthService.shared)
+}
+
+#Preview("Journey (use Canvas device picker for SE / Pro Max)") {
+    JourneyView()
+        .environmentObject(AuthService.shared)
+}
+
+#Preview("Journey (Dynamic Type large)") {
+    JourneyView()
+        .environmentObject(AuthService.shared)
+        .environment(\.sizeCategory, .accessibilityLarge)
 }

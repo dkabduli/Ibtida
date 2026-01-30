@@ -31,6 +31,7 @@ struct HomePrayerView: View {
                 WarmBackgroundView()
                 mainContent
             }
+            .tabBarScrollClearance()
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear { handleOnAppear() }
@@ -110,7 +111,7 @@ struct HomePrayerView: View {
             .padding(.bottom, 32)
         }
     }
-    
+
     // MARK: - Loading Skeleton
     
     private var loadingSkeleton: some View {
@@ -468,7 +469,7 @@ struct WarmPrayerCircle: View {
         .buttonStyle(WarmPrayerCircleStyle(status: status))
         .disabled(isLoading)
         .accessiblePrayerButton(prayer: prayer, status: status)
-        .onChange(of: status) { newStatus in
+        .onChange(of: status) { _, newStatus in
             // Trigger gentle pulse and check animation when status changes from .none
             if newStatus != .none {
                 triggerPrayerLoggedAnimation()
@@ -648,12 +649,13 @@ struct WarmPrayerStatusSheet: View {
                                     WarmStatusOptionButton(
                                         status: status,
                                         isSelected: currentStatus == status,
+                                        gender: userGender,
                                         onTap: { onSelect(status) }
                                     )
                                     .dynamicTypeSize(...DynamicTypeSize.accessibility3) // Support larger text
                                 }
                                 
-                                // Clear option
+                                // Clear option (sets .none = "Not logged")
                                 if currentStatus != .none {
                                     Button(action: { onSelect(.none) }) {
                                         HStack {
@@ -692,6 +694,7 @@ struct WarmPrayerStatusSheet: View {
 struct WarmStatusOptionButton: View {
     let status: PrayerStatus
     let isSelected: Bool
+    var gender: UserGender? = nil
     let onTap: () -> Void
     
     @Environment(\.colorScheme) var colorScheme
@@ -710,9 +713,9 @@ struct WarmStatusOptionButton: View {
                         .foregroundColor(statusColor)
                 }
                 
-                // Labels - Fixed layout to prevent overlap
+                // Labels - Gender-specific display (enum stored to Firestore)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(status.displayName)
+                    Text(status.displayName(for: gender))
                         .font(.system(size: 16, weight: .semibold, design: .rounded))
                         .foregroundColor(Color.warmText(colorScheme))
                         .lineLimit(1)
@@ -757,7 +760,7 @@ struct WarmStatusOptionButton: View {
             )
         }
         .buttonStyle(SmoothButtonStyle())
-        .accessibilityLabel("\(status.displayName), \(status.arabicDescription)")
+        .accessibilityLabel("\(status.displayName(for: gender)), \(status.arabicDescription)")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
     

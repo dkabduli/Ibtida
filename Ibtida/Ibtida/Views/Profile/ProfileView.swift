@@ -216,7 +216,7 @@ struct ProfileView: View {
                 Text("Dark").tag(AppAppearance.dark.rawValue)
             }
             .pickerStyle(.segmented)
-            .onChange(of: themeManager.appAppearanceRaw) { _ in
+            .onChange(of: themeManager.appAppearanceRaw) { _, _ in
                 HapticFeedback.light()
                 // Refresh happens automatically via ThemeManager's didSet
             }

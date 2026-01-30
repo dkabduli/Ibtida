@@ -273,7 +273,7 @@ struct DonateView: View {
                     .foregroundColor(.primary)
             }
             
-            if let profile = viewModel.userProfile, viewModel.creditsToConvert > 0 {
+            if viewModel.userProfile != nil, viewModel.creditsToConvert > 0 {
                 VStack(spacing: AppSpacing.lg) {
                     Text("Double the impact by matching your credit donation")
                         .font(AppTypography.subheadline)

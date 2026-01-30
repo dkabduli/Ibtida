@@ -58,7 +58,7 @@ struct DailyDuaCard: View {
             
             // Actions
             HStack {
-                // Ameen button with lock and undo
+                // Ameen button (toggle: tap to add, tap again to remove)
                 AmeenButton(
                     dua: dua,
                     hasUserSaidAmeen: hasUserSaidAmeen,
@@ -144,22 +144,22 @@ struct DuaOfTheDayCard: View {
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(Color.warmSecondaryText(colorScheme))
             
-            // Actions
-            HStack {
-                // Ameen button with lock and undo
+            // Actions (spacing so Ameen and nav/toolbar never overlap)
+            HStack(alignment: .center, spacing: 12) {
                 AmeenButton(
                     dua: dua,
                     hasUserSaidAmeen: hasUserSaidAmeen,
                     onAmeen: onAmeen
                 )
                 
-                Spacer()
+                Spacer(minLength: 8)
                 
-                // Date
                 Text(dua.createdAt.formatted(date: .abbreviated, time: .omitted))
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(Color.warmSecondaryText(colorScheme))
             }
+            .padding(.top, 4)
+            .padding(.bottom, 8)
         }
         .padding(24)
         .background(
@@ -222,7 +222,7 @@ struct DuaCard: View {
                 
                 Spacer()
                 
-                // Ameen button with lock and undo
+                // Ameen button (toggle)
                 AmeenButtonCompact(
                     dua: dua,
                     hasUserSaidAmeen: hasUserSaidAmeen,
@@ -627,7 +627,7 @@ struct ShimmerModifier: ViewModifier {
     }
 }
 
-// MARK: - Ameen Button Component (Full)
+// MARK: - Ameen Button Component (Full) — Toggle only; no Undo. Tap to add, tap again to remove.
 
 struct AmeenButton: View {
     let dua: Dua
@@ -635,9 +635,7 @@ struct AmeenButton: View {
     let onAmeen: () -> Void
     
     @State private var isLocked = false
-    @State private var showUndo = false
     @State private var animatedCount: Int
-    @State private var undoTask: Task<Void, Never>?
     @Environment(\.colorScheme) var colorScheme
     
     init(dua: Dua, hasUserSaidAmeen: Bool, onAmeen: @escaping () -> Void) {
@@ -652,8 +650,7 @@ struct AmeenButton: View {
             HStack(spacing: 8) {
                 Image(systemName: hasUserSaidAmeen ? "hands.sparkles.fill" : "hands.sparkles")
                     .font(.system(size: 16, weight: .semibold))
-                
-                if hasUserSaidAmeen && !showUndo {
+                if hasUserSaidAmeen {
                     Text("You said Ameen")
                         .font(.system(size: 15, weight: .semibold, design: .rounded))
                 } else {
@@ -668,33 +665,13 @@ struct AmeenButton: View {
                 Capsule()
                     .fill(hasUserSaidAmeen ? AnyShapeStyle(LinearGradient.goldAccent) : AnyShapeStyle(Color.mutedGold.opacity(0.15)))
             )
-            .overlay(
-                Group {
-                    if showUndo {
-                        HStack {
-                            Spacer()
-                            Button(action: handleUndo) {
-                                Text("Undo")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 4)
-                                    .background(
-                                        Capsule()
-                                            .fill(Color.red.opacity(0.8))
-                                    )
-                            }
-                            .padding(.trailing, 8)
-                        }
-                    }
-                }
-            )
         }
         .buttonStyle(SmoothButtonStyle())
         .disabled(isLocked)
         .opacity(isLocked ? 0.6 : 1.0)
-        .onChange(of: dua.ameenCount) { newCount in
-            // Animate count change smoothly
+        .accessibilityLabel(hasUserSaidAmeen ? "Ameen selected" : "Ameen not selected")
+        .accessibilityHint(hasUserSaidAmeen ? "Double tap to remove Ameen" : "Double tap to say Ameen")
+        .onChange(of: dua.ameenCount) { _, newCount in
             withAnimation(.easeOut(duration: 0.4)) {
                 animatedCount = newCount
             }
@@ -702,40 +679,12 @@ struct AmeenButton: View {
     }
     
     private func handleAmeenTap() {
-        // Lock button for 400ms to prevent rapid taps
         isLocked = true
-        
-        // Trigger ameen action
         onAmeen()
-        
-        // Gentle haptic (respects silent mode)
         HapticFeedback.light()
-        
-        // Show undo option for 5 seconds if user just said ameen
-        if !hasUserSaidAmeen {
-            showUndo = true
-            undoTask?.cancel()
-            undoTask = Task {
-                try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
-                if !Task.isCancelled {
-                    await MainActor.run {
-                        showUndo = false
-                    }
-                }
-            }
-        }
-        
-        // Unlock after 400ms
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             isLocked = false
         }
-    }
-    
-    private func handleUndo() {
-        undoTask?.cancel()
-        showUndo = false
-        // Undo is handled by the parent (toggling ameen again)
-        onAmeen()
     }
 }
 
@@ -769,8 +718,9 @@ struct AmeenButtonCompact: View {
         }
         .disabled(isLocked)
         .opacity(isLocked ? 0.6 : 1.0)
-        .onChange(of: dua.ameenCount) { newCount in
-            // Animate count change smoothly
+        .accessibilityLabel(hasUserSaidAmeen ? "Ameen selected" : "Ameen not selected")
+        .accessibilityHint(hasUserSaidAmeen ? "Double tap to remove Ameen" : "Double tap to say Ameen")
+        .onChange(of: dua.ameenCount) { _, newCount in
             withAnimation(.easeOut(duration: 0.4)) {
                 animatedCount = newCount
             }
@@ -778,11 +728,9 @@ struct AmeenButtonCompact: View {
     }
     
     private func handleAmeenTap() {
-        // Lock button for 400ms
         isLocked = true
         onAmeen()
         HapticFeedback.light()
-        
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             isLocked = false
         }

@@ -158,7 +158,7 @@ class CreditConversionViewModel: ObservableObject {
             message = ""
             
             // Reload credits and requests
-            await loadUserCredits()
+            loadUserCredits()
             
             #if DEBUG
             print("✅ CreditConversionViewModel: Request submitted - \(requestId)")

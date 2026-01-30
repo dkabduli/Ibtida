@@ -63,3 +63,19 @@
 - **DateUtils date range**: `dateRangeForLastNWeeks(5, using: journeyCalendar)` spans 5 full weeks; end = start of next week after current.
 
 See `IbtidaTests/JourneyDateUtilsTests.swift`.
+
+---
+
+## App Icon consistency
+
+- **Goal**: Use the same logo image as shown in-app for the iOS App Icon so the icon and in-app branding match.
+- **Steps**: Export the in-app logo at 1024×1024 (and any other sizes required by the Asset Catalog). In Xcode: **Assets.xcassets → AppIcon** → drag the exported images into the appropriate slots (iOS universal 1024×1024, dark/tinted if used). Ensure no stretching, correct safe margin, and transparent background handled if needed.
+- **Note**: The Asset Catalog does not contain image files by default; you must add the logo assets. Keep the in-app logo and App Icon visually consistent (same colors and proportions).
+
+---
+
+## Islamic guidelines / fiqh alignment
+
+- **Prayer logging**: Terminology uses mainstream terms (e.g. Jama’ah context for masjid, Qada, “Not applicable 🩸” for hayd). “Not applicable 🩸” is excluded from streaks and progress so it does not penalize sisters.
+- **Donations**: Flows make clear that funds go to Ibtida and then to chosen organizations; emphasis on niyyah, amanah, and transparency; no riba/interest or gambling-like framing.
+- **Tone**: Modest visuals, respectful copy, no music/autoplay, no gamification that trivializes worship. Where fiqh opinions differ, the app presents options neutrally.

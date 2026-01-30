@@ -77,7 +77,7 @@ class CreditConversionService {
             .getDocuments()
         
         return snapshot.documents.compactMap { doc -> CreditConversionRequest? in
-            guard let data = doc.data() as? [String: Any] else { return nil }
+            let data = doc.data()
             return parseRequest(data: data)
         }
     }

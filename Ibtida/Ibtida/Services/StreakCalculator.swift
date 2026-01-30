@@ -96,8 +96,8 @@ class StreakCalculator {
         
         var prayerDays: [PrayerDay] = []
         for doc in snapshot.documents {
-            if let data = doc.data() as? [String: Any],
-               let prayerDay = parsePrayerDay(data: data, dateString: doc.documentID) {
+            let data = doc.data()
+            if let prayerDay = parsePrayerDay(data: data, dateString: doc.documentID) {
                 prayerDays.append(prayerDay)
             }
         }
@@ -125,19 +125,19 @@ class StreakCalculator {
         var prayerDay = PrayerDay(dateString: dateString, date: date)
         
         if let fajr = data["fajrStatus"] as? String {
-            prayerDay.fajrStatus = PrayerStatus(rawValue: fajr) ?? .none
+            prayerDay.fajrStatus = PrayerStatus.fromFirestore(fajr)
         }
         if let dhuhr = data["dhuhrStatus"] as? String {
-            prayerDay.dhuhrStatus = PrayerStatus(rawValue: dhuhr) ?? .none
+            prayerDay.dhuhrStatus = PrayerStatus.fromFirestore(dhuhr)
         }
         if let asr = data["asrStatus"] as? String {
-            prayerDay.asrStatus = PrayerStatus(rawValue: asr) ?? .none
+            prayerDay.asrStatus = PrayerStatus.fromFirestore(asr)
         }
         if let maghrib = data["maghribStatus"] as? String {
-            prayerDay.maghribStatus = PrayerStatus(rawValue: maghrib) ?? .none
+            prayerDay.maghribStatus = PrayerStatus.fromFirestore(maghrib)
         }
         if let isha = data["ishaStatus"] as? String {
-            prayerDay.ishaStatus = PrayerStatus(rawValue: isha) ?? .none
+            prayerDay.ishaStatus = PrayerStatus.fromFirestore(isha)
         }
         
         // Check for menstrual day flag

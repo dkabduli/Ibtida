@@ -305,6 +305,9 @@ struct LoginView: View {
                     return
                 }
                 try? await authService.signUp(name: name, email: email, password: password, gender: gender)
+                    await MainActor.run {
+                        NotificationCenter.default.post(name: NSNotification.Name("OnboardingCompleted"), object: nil)
+                    }
             } else {
                 try? await authService.signIn(email: email, password: password)
             }

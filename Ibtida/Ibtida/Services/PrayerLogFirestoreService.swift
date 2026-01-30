@@ -66,10 +66,10 @@ class PrayerLogFirestoreService {
             guard let date = (data["date"] as? Timestamp)?.dateValue(),
                   let prayerTypeRaw = data["prayerType"] as? String,
                   let prayerType = PrayerType(rawValue: prayerTypeRaw),
-                  let statusRaw = data["status"] as? String,
-                  let status = PrayerStatus(rawValue: statusRaw) else {
+                  let statusRaw = data["status"] as? String else {
                 return nil
             }
+            let status = PrayerStatus.fromFirestore(statusRaw)
             return PrayerLog(
                 id: doc.documentID,
                 date: date,
@@ -135,10 +135,10 @@ class PrayerLogFirestoreService {
                     guard let date = (data["date"] as? Timestamp)?.dateValue(),
                           let prayerTypeRaw = data["prayerType"] as? String,
                           let prayerType = PrayerType(rawValue: prayerTypeRaw),
-                          let statusRaw = data["status"] as? String,
-                          let status = PrayerStatus(rawValue: statusRaw) else {
+                          let statusRaw = data["status"] as? String else {
                         return nil
                     }
+                    let status = PrayerStatus.fromFirestore(statusRaw)
                     
                     return PrayerLog(
                         id: doc.documentID,

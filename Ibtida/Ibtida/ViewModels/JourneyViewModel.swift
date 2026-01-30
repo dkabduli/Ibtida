@@ -52,8 +52,8 @@ final class JourneyViewModel: ObservableObject {
     // MARK: - Init
 
     init(
-        prayerService: PrayerLogFirestoreService = .shared,
-        profileService: UserProfileFirestoreService = .shared
+        prayerService: PrayerLogFirestoreService,
+        profileService: UserProfileFirestoreService
     ) {
         self.prayerService = prayerService
         self.profileService = profileService
@@ -91,37 +91,29 @@ final class JourneyViewModel: ObservableObject {
         print("📖 Journey: fetch uid=\(uid.prefix(8))… rangeStart=\(startStr) rangeEnd=\(endStr)")
         #endif
 
-        do {
-            async let profileResult = try? profileService.loadUserProfile(uid: uid)
-            async let logsResult = try? prayerService.fetchPrayerLogsOnce(weekStart: rangeStart, weekEnd: rangeEnd)
+        async let profileResult = try? profileService.loadUserProfile(uid: uid)
+        async let logsResult = try? prayerService.fetchPrayerLogsOnce(weekStart: rangeStart, weekEnd: rangeEnd)
 
-            let profile = await profileResult
-            let logs = await logsResult ?? []
+        let profile = await profileResult
+        let logs = await logsResult ?? []
 
-            self.allLogs = logs
-            self.userSummary = JourneyUserSummary(
-                streakDays: profile?.currentStreak ?? 0,
-                credits: profile?.credits ?? 0
-            )
+        self.allLogs = logs
+        self.userSummary = JourneyUserSummary(
+            streakDays: profile?.currentStreak ?? 0,
+            credits: profile?.credits ?? 0
+        )
 
-            let weeks = Self.computeWeeks(weekStarts: weekStarts, logs: logs, calendar: calendar)
+        let weeks = Self.computeWeeks(weekStarts: weekStarts, logs: logs, calendar: calendar)
 
-            self.currentWeek = weeks.first
-            self.lastFiveWeeks = weeks
-            self.loadState = .loaded
-            self.lastUpdated = Date()
+        self.currentWeek = weeks.first
+        self.lastFiveWeeks = weeks
+        self.loadState = .loaded
+        self.lastUpdated = Date()
 
-            #if DEBUG
-            let currentStart = weekStarts.first.map { DateUtils.weekId(for: $0) } ?? "—"
-            print("📖 Journey: Loaded \(logs.count) prayer logs (\(startStr) – \(endStr)), computed \(weeks.count) weeks, current week starts \(currentStart)")
-            #endif
-
-        } catch {
-            loadState = .failed("Couldn't load journey. Pull to refresh.")
-            #if DEBUG
-            print("❌ Journey: load error - \(error)")
-            #endif
-        }
+        #if DEBUG
+        let currentStart = weekStarts.first.map { DateUtils.weekId(for: $0) } ?? "—"
+        print("📖 Journey: Loaded \(logs.count) prayer logs (\(startStr) – \(endStr)), computed \(weeks.count) weeks, current week starts \(currentStart)")
+        #endif
     }
 
     // MARK: - Refresh (keep old content, show refreshing)

@@ -79,13 +79,7 @@ struct SettingsView: View {
             .alert("Sign Out", isPresented: $showLogoutAlert) {
                 Button("Cancel", role: .cancel) {}
                 Button("Sign Out", role: .destructive) {
-                    do {
-                        try authService.signOut()
-                    } catch {
-                        #if DEBUG
-                        print("Error signing out: \(error)")
-                        #endif
-                    }
+                    authService.signOut()
                 }
             } message: {
                 Text("Are you sure you want to sign out?")
