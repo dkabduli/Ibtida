@@ -37,8 +37,8 @@ class PrayerLogFirestoreService {
             "updatedAt": Timestamp(date: Date())
         ]
         
-        try await db.collection("users").document(uid)
-            .collection("prayers")
+        try await db.collection(FirestorePaths.users).document(uid)
+            .collection(FirestorePaths.prayers)
             .document(log.id)
             .setData(data, merge: true)
         
@@ -55,8 +55,8 @@ class PrayerLogFirestoreService {
         let startTimestamp = Timestamp(date: weekStart)
         let endTimestamp = Timestamp(date: weekEnd)
         
-        let snapshot = try await db.collection("users").document(uid)
-            .collection("prayers")
+        let snapshot = try await db.collection(FirestorePaths.users).document(uid)
+            .collection(FirestorePaths.prayers)
             .whereField("date", isGreaterThanOrEqualTo: startTimestamp)
             .whereField("date", isLessThanOrEqualTo: endTimestamp)
             .getDocuments()
@@ -107,8 +107,8 @@ class PrayerLogFirestoreService {
         let startTimestamp = Timestamp(date: weekStart)
         let endTimestamp = Timestamp(date: weekEnd)
         
-        let listener = db.collection("users").document(uid)
-            .collection("prayers")
+        let listener = db.collection(FirestorePaths.users).document(uid)
+            .collection(FirestorePaths.prayers)
             .whereField("date", isGreaterThanOrEqualTo: startTimestamp)
             .whereField("date", isLessThanOrEqualTo: endTimestamp)
             .addSnapshotListener { snapshot, error in

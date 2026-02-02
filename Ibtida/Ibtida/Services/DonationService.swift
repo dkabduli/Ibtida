@@ -78,8 +78,8 @@ class DonationService {
         ]
         
         do {
-            try await db.collection("users").document(uid)
-                .collection("credit_conversions")
+            try await db.collection(FirestorePaths.users).document(uid)
+                .collection(FirestorePaths.creditConversions)
                 .document(conversion.id)
                 .setData(data)
             
@@ -115,8 +115,8 @@ class DonationService {
         ]
         
         do {
-            try await db.collection("users").document(uid)
-                .collection("donation_intents")
+            try await db.collection(FirestorePaths.users).document(uid)
+                .collection(FirestorePaths.donationIntents)
                 .document(intent.id)
                 .setData(data)
             
@@ -152,8 +152,8 @@ class DonationService {
         ]
         
         do {
-            try await db.collection("users").document(uid)
-                .collection("donations")
+            try await db.collection(FirestorePaths.users).document(uid)
+                .collection(FirestorePaths.donations)
                 .document(donationId)
                 .setData(donationData)
             
@@ -177,8 +177,8 @@ class DonationService {
                 "createdAt": Timestamp(date: receipt.createdAt)
             ]
             
-            try await db.collection("users").document(uid)
-                .collection("receipts")
+            try await db.collection(FirestorePaths.users).document(uid)
+                .collection(FirestorePaths.receipts)
                 .document(receipt.id)
                 .setData(receiptData)
             

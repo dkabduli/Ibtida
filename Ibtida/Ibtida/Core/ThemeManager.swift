@@ -47,6 +47,16 @@ class ThemeManager: ObservableObject {
     
     @AppStorage("useWarmTheme") var useWarmTheme: Bool = true
     
+    /// Hijri calendar method (Civil vs Umm al-Qura); dates may vary by region
+    @AppStorage("hijriMethod") var hijriMethodRaw: String = HijriMethod.civil.rawValue {
+        didSet { objectWillChange.send() }
+    }
+    
+    var hijriMethod: HijriMethod {
+        get { HijriMethod(rawValue: hijriMethodRaw) ?? .civil }
+        set { hijriMethodRaw = newValue.rawValue }
+    }
+    
     /// Current user gender (from Firestore profile)
     @Published var userGender: UserGender?
     
@@ -140,7 +150,7 @@ class ThemeManager: ObservableObject {
         Task {
             do {
                 let db = Firestore.firestore()
-                try await db.collection("users").document(uid).setData([
+                try await db.collection(FirestorePaths.users).document(uid).setData([
                     "appearance": appAppearanceRaw,
                     "lastUpdatedAt": FieldValue.serverTimestamp()
                 ], merge: true)
@@ -163,7 +173,7 @@ class ThemeManager: ObservableObject {
         
         do {
             let db = Firestore.firestore()
-            let doc = try await db.collection("users").document(uid).getDocument()
+            let doc = try await db.collection(FirestorePaths.users).document(uid).getDocument()
             
             if let data = doc.data(),
                let firestoreAppearance = data["appearance"] as? String,

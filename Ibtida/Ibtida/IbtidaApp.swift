@@ -82,6 +82,7 @@ struct IbtidaApp: App {
 
 // MARK: - Root View
 
+// BEHAVIOR LOCK: Auth routing; profile load and onboarding gate. See Core/BEHAVIOR_LOCK.md
 struct RootView: View {
     @EnvironmentObject var authService: AuthService
     @EnvironmentObject var themeManager: ThemeManager

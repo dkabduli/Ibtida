@@ -84,7 +84,7 @@ class AdminDashboardViewModel: ObservableObject {
         }
         
         do {
-            let conversionSnap = try await db.collection("credit_conversion_requests")
+            let conversionSnap = try await db.collection(FirestorePaths.creditConversionRequests)
                 .limit(to: 500)
                 .getDocuments()
             conversionRequestCount = conversionSnap.documents.count

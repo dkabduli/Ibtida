@@ -31,6 +31,9 @@ struct ProfileView: View {
                         // App Section
                         appSection
                         
+                        // Admin Section (only when isAdmin)
+                        adminSection
+                        
                         // Account Section
                         accountSection
                     }
@@ -163,6 +166,10 @@ struct ProfileView: View {
             }
             
             VStack(spacing: 12) {
+                NavigationLink(destination: AppSettingsView().environmentObject(authService)) {
+                    appLinkRow(icon: "gearshape.fill", title: "App Settings", color: .mutedGold)
+                }
+
                 NavigationLink(destination: DonationsHistoryView().environmentObject(authService)) {
                     appLinkRow(icon: "heart.circle", title: "Donations", color: .mutedGold)
                 }
@@ -182,6 +189,23 @@ struct ProfileView: View {
         }
         .padding(20)
         .warmCard(elevation: .medium)
+    }
+    
+    // MARK: - Admin Section (only when isAdmin)
+    
+    @ViewBuilder
+    private var adminSection: some View {
+        if authService.isAdmin {
+            VStack(alignment: .leading, spacing: 16) {
+                WarmSectionHeader("Admin", icon: "shield.checkered", subtitle: nil)
+                
+                NavigationLink(destination: AdminDashboardView()) {
+                    appLinkRow(icon: "hammer.fill", title: "Admin Panel", color: .softOlive)
+                }
+            }
+            .padding(20)
+            .warmCard(elevation: .medium)
+        }
     }
     
     // MARK: - Theme Toggle

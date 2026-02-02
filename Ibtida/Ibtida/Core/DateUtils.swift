@@ -4,6 +4,7 @@
 //
 //  Timezone-aware date utilities for prayer day boundaries
 //  Ensures prayers never carry over between days
+//  BEHAVIOR LOCK: Day/week boundaries and Journey calendar. See BEHAVIOR_LOCK.md
 //
 
 import Foundation

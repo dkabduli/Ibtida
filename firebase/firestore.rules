@@ -38,6 +38,24 @@ service cloud.firestore {
       match /prayerDays/{docId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
+      match /ramadanLogs/{dateString} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /reelInteractions/{reelId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // ----- reels (global feed; authenticated read; isActive == true) -----
+    match /reels/{reelId} {
+      allow read: if request.auth != null && resource.data.isActive == true;
+      allow write: if false;
+    }
+
+    // ----- app_config (calendar flags e.g. Ramadan; read-only for authenticated) -----
+    match /app_config/{docId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
     }
 
     // ----- donations (legacy top-level; server-only; client uses users/{uid}/donations) -----

@@ -19,13 +19,9 @@ struct AppSettingsView: View {
                 Color.warmBackground(colorScheme).ignoresSafeArea()
                 
                 List {
-                    // Appearance section
                     appearanceSection
-                    
-                    // Account section
+                    islamicCalendarSection
                     accountSection
-                    
-                    // About section
                     aboutSection
                 }
                 .listStyle(.insetGrouped)
@@ -91,6 +87,36 @@ struct AppSettingsView: View {
             Text("APPEARANCE")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(Color.warmSecondaryText(colorScheme))
+        }
+    }
+    
+    // MARK: - Islamic Calendar Section
+    
+    private var islamicCalendarSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Image(systemName: "moon.stars.fill")
+                        .foregroundColor(.mutedGold)
+                    Text("Hijri calendar")
+                        .font(.system(size: 16, weight: .semibold))
+                }
+                Picker("Calculation method", selection: $themeManager.hijriMethodRaw) {
+                    ForEach(HijriMethod.allCases, id: \.rawValue) { method in
+                        Text(method.displayName).tag(method.rawValue)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+            .padding(.vertical, 8)
+            .listRowBackground(Color.warmCard(colorScheme))
+        } header: {
+            Text("ISLAMIC CALENDAR")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(Color.warmSecondaryText(colorScheme))
+        } footer: {
+            Text("Dates may vary by region (moon sighting). Islamic Civil is astronomical; Umm al-Qura is used in Saudi Arabia.")
+                .font(.system(size: 12))
         }
     }
     

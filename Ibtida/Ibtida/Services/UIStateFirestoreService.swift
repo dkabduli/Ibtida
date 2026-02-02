@@ -20,9 +20,9 @@ class UIStateFirestoreService {
     // MARK: - Daily Dua Dismissal
     
     func isDailyDuaDismissed(uid: String, date: String) async throws -> Bool {
-        let docRef = db.collection("users")
+        let docRef = db.collection(FirestorePaths.users)
             .document(uid)
-            .collection("uiState")
+            .collection(FirestorePaths.uiState)
             .document("dailyDua")
         
         do {
@@ -47,9 +47,9 @@ class UIStateFirestoreService {
     }
     
     func setDailyDuaDismissed(uid: String, date: String, reason: String) async throws {
-        let docRef = db.collection("users")
+        let docRef = db.collection(FirestorePaths.users)
             .document(uid)
-            .collection("uiState")
+            .collection(FirestorePaths.uiState)
             .document("dailyDua")
         
         let data: [String: Any] = [

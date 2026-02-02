@@ -22,6 +22,7 @@ enum PrayerStatusColors {
         case .prayedAtMasjid: return .purple
         case .prayedAtHome: return .mint
         case .menstrual: return .gray.opacity(0.5) // Neutral gray for "Not Applicable" (sisters)
+        case .jummah: return Color.mutedGold  // Jumu'ah: highest reward
         }
     }
     
@@ -54,7 +55,7 @@ enum PrayerStatusColors {
             return .hasLate
         } else if statuses.contains(.qada) {
             return .hasQada
-        } else if statuses.allSatisfy({ $0 == .onTime || $0 == .prayedAtMasjid || $0 == .prayedAtHome }) {
+        } else if statuses.allSatisfy({ $0 == .onTime || $0 == .prayedAtMasjid || $0 == .prayedAtHome || $0 == .jummah }) {
             return .allOnTime
         } else {
             return .none
@@ -98,7 +99,7 @@ enum PrayerStatusColors {
             return .orange
         } else if statuses.contains(.qada) {
             return .blue
-        } else if statuses.allSatisfy({ $0 == .onTime || $0 == .prayedAtMasjid || $0 == .prayedAtHome }) {
+        } else if statuses.allSatisfy({ $0 == .onTime || $0 == .prayedAtMasjid || $0 == .prayedAtHome || $0 == .jummah }) {
             return .green
         } else {
             return .gray.opacity(0.3)

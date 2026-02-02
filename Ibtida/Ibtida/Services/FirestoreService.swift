@@ -46,11 +46,11 @@ class FirestoreService {
     // MARK: - User Document Reference
     
     func userDocument(uid: String) -> DocumentReference {
-        return db.collection("users").document(uid)
+        return db.collection(FirestorePaths.users).document(uid)
     }
     
     func userCollection(uid: String, path: String) -> CollectionReference {
-        return db.collection("users").document(uid).collection(path)
+        return db.collection(FirestorePaths.users).document(uid).collection(path)
     }
     
     // MARK: - Current User UID

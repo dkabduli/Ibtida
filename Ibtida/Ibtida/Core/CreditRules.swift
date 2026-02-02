@@ -5,6 +5,7 @@
 //  Credit/consistency score rules for prayer tracking
 //  NOTE: These are personal tracking scores to motivate consistency.
 //  They do NOT represent actual religious reward (hasanat) from Allah.
+//  BEHAVIOR LOCK: Point and bonus constants. See BEHAVIOR_LOCK.md
 //
 //  REFINED SYSTEM:
 //  - New users get bonus credits (first 14 days) to encourage engagement
@@ -40,11 +41,25 @@ enum CreditRules {
     /// Points for praying at masjid (brothers only - extra reward for congregation)
     static let prayedAtMasjidCredit: Int = 18  // Increased from 15
     
+    /// Points for Jumu'ah (Friday prayer – brothers only, Dhuhr slot; highest reward for that day)
+    static let jummahCredit: Int = 22
+    
     /// Points for praying at home (sisters only - standard on-time)
     static let prayedAtHomeCredit: Int = 12  // Increased from 10 for sisters
     
     /// Points for menstrual period (sisters only - not applicable, no prayer)
     static let menstrualCredit: Int = 0
+    
+    // MARK: - Sunnah & Fasting Bonuses
+    
+    /// Bonus credits for Sunnah fast (Monday or Thursday) – once per day
+    static let fastingMonThuBonus: Int = 5
+    
+    /// Bonus credits for White Days (13/14/15 Hijri) – once per day; can stack with Mon/Thu
+    static let fastingWhiteDayBonus: Int = 5
+    
+    /// Bonus credits per prayer when Sunnah was prayed (only for performed statuses)
+    static let sunnahPrayerBonus: Int = 2
     
     // MARK: - New User Bonus System
     
@@ -120,6 +135,7 @@ enum CreditRules {
         case .prayedAtMasjid: return prayedAtMasjidCredit
         case .prayedAtHome: return prayedAtHomeCredit
         case .menstrual: return menstrualCredit
+        case .jummah: return jummahCredit
         }
     }
     

@@ -118,6 +118,13 @@ struct HomeView: View {
         .padding(.horizontal, AppSpacing.lg)
     }
     
+    /// Today's status for a prayer; on Friday, Dhuhr slot uses Jumu'ah log
+    private func todayStatus(for prayer: PrayerType) -> PrayerStatus {
+        let isFriday = Calendar.current.component(.weekday, from: Date()) == 6
+        let effective = (prayer == .dhuhr && isFriday) ? PrayerType.jumuah : prayer
+        return viewModel.prayerLogs.first(where: { Calendar.current.isDateInToday($0.date) && $0.prayerType == effective })?.status ?? .missed
+    }
+    
     private var todayQuickActions: some View {
         VStack(spacing: AppSpacing.xl) {
             // Today's Prayers
@@ -130,10 +137,10 @@ struct HomeView: View {
                         .padding()
                 } else {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: AppSpacing.md), count: 3), spacing: AppSpacing.md) {
-                        ForEach(PrayerType.allCases) { prayer in
+                        ForEach(PrayerType.standardFive, id: \.rawValue) { prayer in
                             PrayerCircle(
                                 prayer: prayer,
-                                status: viewModel.prayerLogs.first(where: { Calendar.current.isDateInToday($0.date) && $0.prayerType == prayer })?.status ?? .missed,
+                                status: todayStatus(for: prayer),
                                 onTap: {
                                     #if DEBUG
                                     print("📤 HomeView: prayer circle tapped \(prayer.rawValue)")
@@ -230,6 +237,7 @@ struct PrayerCircle: View {
         case .prayedAtMasjid: return .purple
         case .prayedAtHome: return .mint
         case .menstrual: return .red.opacity(0.7)
+        case .jummah: return Color.mutedGold
         }
     }
 }
@@ -246,7 +254,7 @@ struct WeeklyPrayerGridView: View {
                 Text("Day")
                     .font(AppTypography.captionBold)
                     .frame(maxWidth: .infinity)
-                ForEach(PrayerType.allCases) { prayer in
+                ForEach(PrayerType.standardFive, id: \.rawValue) { prayer in
                     Text(prayer.displayName.prefix(1))
                         .font(AppTypography.captionBold)
                         .frame(maxWidth: .infinity)
@@ -272,8 +280,9 @@ struct WeeklyPrayerGridView: View {
                     }
                     .frame(maxWidth: .infinity)
                     
-                    ForEach(PrayerType.allCases) { prayer in
-                        let log = prayerLogs.first(where: { Calendar.current.isDate($0.date, inSameDayAs: date) && $0.prayerType == prayer })
+                    ForEach(PrayerType.standardFive, id: \.rawValue) { prayer in
+                        let effective = (prayer == .dhuhr && Calendar.current.component(.weekday, from: date) == 6) ? PrayerType.jumuah : prayer
+                        let log = prayerLogs.first(where: { Calendar.current.isDate($0.date, inSameDayAs: date) && $0.prayerType == effective })
                         let status = log?.status ?? .missed
                         
                         Button(action: {
@@ -332,6 +341,7 @@ struct WeeklyPrayerGridView: View {
         case .prayedAtMasjid: return .purple
         case .prayedAtHome: return .mint
         case .menstrual: return .red.opacity(0.7)
+        case .jummah: return Color.mutedGold
         }
     }
 }
@@ -483,9 +493,18 @@ struct WeekColumn: View {
                 .font(isCurrentWeek ? AppTypography.captionBold : AppTypography.caption)
                 .foregroundColor(isCurrentWeek ? .primary : .secondary)
                 .frame(height: layout.labelHeight)
-            
+            // Hijri day numbers (secondary) per day column
+            HStack(spacing: layout.circleSpacing) {
+                ForEach(Array(weekDays.enumerated()), id: \.offset) { _, day in
+                    Text(HijriCalendarService.hijriDayNumber(for: day, method: ThemeManager.shared.hijriMethod))
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .frame(width: layout.circleSize, height: 12)
+                }
+            }
+            .frame(height: 12)
             VStack(spacing: layout.rowSpacing) {
-                ForEach(PrayerType.allCases, id: \.self) { prayer in
+                ForEach(PrayerType.standardFive, id: \.self) { prayer in
                     PrayerWeekRow(
                         weekDays: weekDays,
                         weekStart: weekStart,
@@ -562,16 +581,31 @@ struct PrayerDayCircle: View {
         dayId == todayDayId
     }
     
+    /// On Friday, Dhuhr row shows Jumu'ah status (distinct prayer)
+    private var effectivePrayer: PrayerType {
+        let isFriday = Calendar.current.component(.weekday, from: day) == 6
+        return (prayer == .dhuhr && isFriday) ? .jumuah : prayer
+    }
+    
     private var status: PrayerStatus {
         if isToday, let today = todayPrayers {
-            return today.status(for: prayer)
+            return today.status(for: effectivePrayer)
         } else {
+            let logDayId = { (d: Date) in DateUtils.dayId(for: d) }
+            let logWeekStart = { (d: Date) in DateUtils.weekStart(for: d) }
+            if effectivePrayer == .jumuah {
+                // Friday: prefer Jumu'ah log, else Dhuhr
+                let jumuahLog = prayerLogs.first(where: { log in
+                    logDayId(log.date) == dayId && logWeekStart(log.date) == weekStart && log.prayerType == .jumuah
+                })
+                if let log = jumuahLog { return log.status }
+                let dhuhrLog = prayerLogs.first(where: { log in
+                    logDayId(log.date) == dayId && logWeekStart(log.date) == weekStart && log.prayerType == .dhuhr
+                })
+                return dhuhrLog?.status ?? .none
+            }
             let log = prayerLogs.first(where: { log in
-                let logDayId = DateUtils.dayId(for: log.date)
-                let logWeekStart = DateUtils.weekStart(for: log.date)
-                return logDayId == dayId && 
-                       log.prayerType == prayer &&
-                       logWeekStart == weekStart
+                logDayId(log.date) == dayId && logWeekStart(log.date) == weekStart && log.prayerType == prayer
             })
             return log?.status ?? .none
         }
@@ -691,6 +725,7 @@ struct PrayerStatusPickerSheet: View {
         case .prayedAtMasjid: return .purple
         case .prayedAtHome: return .mint
         case .menstrual: return .red.opacity(0.7)
+        case .jummah: return Color.mutedGold
         }
     }
 }

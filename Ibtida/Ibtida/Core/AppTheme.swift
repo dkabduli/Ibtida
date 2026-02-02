@@ -389,6 +389,7 @@ struct WarmPrayerCircleStyle: ButtonStyle {
         case .prayedAtMasjid: return Color.purple.opacity(0.8)
         case .prayedAtHome: return Color.mint.opacity(0.8)
         case .menstrual: return Color.red.opacity(0.7)
+        case .jummah: return Color.mutedGold
         }
     }
 }

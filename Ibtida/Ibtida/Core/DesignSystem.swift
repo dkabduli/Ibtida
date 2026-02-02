@@ -29,6 +29,25 @@ enum TabBarLayout {
     static let clearanceHeight: CGFloat = 96
 }
 
+// MARK: - Content Layout (shared constants for Home, Journey, and other main views)
+
+/// Shared layout constants for consistent page structure across Brothers and Sisters experiences.
+/// Use these instead of local constants to ensure visual consistency.
+enum ContentLayout {
+    /// Horizontal padding for main content (cards, sections)
+    static let horizontalPadding: CGFloat = 20
+    /// Internal card padding
+    static let cardPadding: CGFloat = 16
+    /// Spacing between sections
+    static let sectionSpacing: CGFloat = 20
+    /// Bottom inset for scroll content
+    static let bottomInset: CGFloat = 24
+    /// Standard corner radius for cards
+    static let cardCornerRadius: CGFloat = 12
+    /// Small corner radius for inline elements
+    static let smallCornerRadius: CGFloat = 8
+}
+
 extension View {
     /// Reserves bottom space so scroll content (e.g. last card) is never hidden behind the tab bar.
     /// Use on the ScrollView that contains tab content. Matches Home + Journey layout system.
@@ -138,8 +157,8 @@ struct HapticFeedback {
         case .missed:
             // No haptic for missed - avoid negative reinforcement
             break
-        case .prayedAtMasjid, .prayedAtHome:
-            light() // Gentle for location-based
+        case .prayedAtMasjid, .prayedAtHome, .jummah:
+            light() // Gentle for location-based / Jumu'ah
         case .menstrual:
             // No haptic for menstrual - neutral
             break

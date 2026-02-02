@@ -165,6 +165,12 @@ class JourneyMilestoneViewModel: ObservableObject {
         if let isha = data["ishaStatus"] as? String {
             prayerDay.ishaStatus = PrayerStatus.fromFirestore(isha)
         }
+        prayerDay.fajrSunnahPrayed = data["fajrSunnahPrayed"] as? Bool ?? false
+        prayerDay.dhuhrSunnahPrayed = data["dhuhrSunnahPrayed"] as? Bool ?? false
+        prayerDay.asrSunnahPrayed = data["asrSunnahPrayed"] as? Bool ?? false
+        prayerDay.maghribSunnahPrayed = data["maghribSunnahPrayed"] as? Bool ?? false
+        prayerDay.ishaSunnahPrayed = data["ishaSunnahPrayed"] as? Bool ?? false
+        prayerDay.ishaWitrPrayed = data["ishaWitrPrayed"] as? Bool ?? false
         
         prayerDay.recalculateCredits()
         

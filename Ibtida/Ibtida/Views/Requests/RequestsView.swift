@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import FirebaseFirestore
 import FirebaseAuth
 
 struct RequestsView: View {
@@ -20,7 +19,7 @@ struct RequestsView: View {
                     .ignoresSafeArea()
                 
                 Group {
-                    if viewModel.isLoading && viewModel.requests.isEmpty {
+                    if LoadState.showLoadingPlaceholder(loadState: viewModel.loadState, isEmpty: viewModel.requests.isEmpty) {
                         loadingView
                     } else if viewModel.requests.isEmpty {
                         emptyStateView
@@ -44,7 +43,7 @@ struct RequestsView: View {
             .onAppear { viewModel.loadRequests() }
             .refreshable { viewModel.loadRequests() }
             .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
-                Button("OK") { viewModel.errorMessage = nil }
+                Button("OK") { viewModel.clearError() }
             } message: {
                 Text(viewModel.errorMessage ?? "")
             }
@@ -216,14 +215,18 @@ struct CreateRequestView: View {
 }
 
 // MARK: - Requests ViewModel
+// BEHAVIOR LOCK: LoadState + single loadTask prevent blank-first-tap and double-fetch. See Core/BEHAVIOR_LOCK.md
 
 @MainActor
 class RequestsViewModel: ObservableObject {
     @Published var requests: [DuaRequest] = []
-    @Published var isLoading = false
-    @Published var errorMessage: String?
+    @Published var loadState: LoadState = .idle
     
-    private let db = Firestore.firestore()
+    private let requestsService = UserRequestsFirestoreService.shared
+    private var loadTask: Task<Void, Never>?
+    
+    var isLoading: Bool { loadState.isLoading }
+    var errorMessage: String? { loadState.errorMessage }
     
     func loadRequests() {
         guard let uid = Auth.auth().currentUser?.uid else {
@@ -233,94 +236,42 @@ class RequestsViewModel: ObservableObject {
             return
         }
         
-        isLoading = true
-        errorMessage = nil
+        loadTask?.cancel()
+        loadState = .loading
         
-        #if DEBUG
-        print("📖 RequestsViewModel: Loading requests for user \(uid)")
-        #endif
-        
-        Task {
+        loadTask = Task {
+            defer { loadTask = nil }
             do {
-                let snapshot = try await db.collection("users").document(uid)
-                    .collection("requests")
-                    .order(by: "createdAt", descending: true)
-                    .getDocuments()
-                
-                let loadedRequests = snapshot.documents.compactMap { doc -> DuaRequest? in
-                    let data = doc.data()
-                    
-                    guard let userId = data["userId"] as? String,
-                          let title = data["title"] as? String,
-                          let body = data["body"] as? String,
-                          let statusRaw = data["status"] as? String,
-                          let status = RequestStatus(rawValue: statusRaw),
-                          let createdAt = (data["createdAt"] as? Timestamp)?.dateValue() else {
-                        return nil
-                    }
-                    
-                    let updatedAt = (data["updatedAt"] as? Timestamp)?.dateValue() ?? createdAt
-                    
-                    return DuaRequest(
-                        id: doc.documentID,
-                        userId: userId,
-                        title: title,
-                        body: body,
-                        status: status,
-                        createdAt: createdAt,
-                        updatedAt: updatedAt
-                    )
-                }
-                
-                self.requests = loadedRequests
-                
-                #if DEBUG
-                print("✅ RequestsViewModel: Loaded \(loadedRequests.count) requests")
-                #endif
-                
+                let loaded = try await requestsService.loadRequests(uid: uid)
+                guard !Task.isCancelled else { return }
+                self.requests = loaded
+                self.loadState = loaded.isEmpty ? .empty : .loaded
             } catch {
-                self.errorMessage = "Failed to load requests: \(error.localizedDescription)"
-                #if DEBUG
-                print("❌ RequestsViewModel: Error loading requests - \(error)")
-                #endif
+                guard !Task.isCancelled else { return }
+                self.loadState = .error("Failed to load requests: \(error.localizedDescription)")
+                AppLog.error("RequestsViewModel: load failed – \(error.localizedDescription)")
             }
-            
-            isLoading = false
         }
     }
     
     func createRequest(title: String, body: String) async {
         guard let uid = Auth.auth().currentUser?.uid else {
-            errorMessage = "Please sign in to create a request"
+            loadState = .error("Please sign in to create a request")
             return
         }
         
-        let data: [String: Any] = [
-            "userId": uid,
-            "title": title,
-            "body": body,
-            "status": RequestStatus.pending.rawValue,
-            "createdAt": Timestamp(date: Date()),
-            "updatedAt": Timestamp(date: Date())
-        ]
-        
         do {
-            try await db.collection("users").document(uid)
-                .collection("requests")
-                .addDocument(data: data)
-            
-            #if DEBUG
-            print("✅ RequestsViewModel: Created new request")
-            #endif
-            
-            // Reload
+            try await requestsService.createRequest(uid: uid, title: title, body: body)
             loadRequests()
-            
         } catch {
-            errorMessage = "Failed to create request: \(error.localizedDescription)"
-            #if DEBUG
-            print("❌ RequestsViewModel: Error creating request - \(error)")
-            #endif
+            loadState = .error("Failed to create request: \(error.localizedDescription)")
+            AppLog.error("RequestsViewModel: create failed – \(error.localizedDescription)")
+        }
+    }
+    
+    func clearError() {
+        if case .error = loadState {
+            loadState = requests.isEmpty ? .empty : .loaded
         }
     }
 }

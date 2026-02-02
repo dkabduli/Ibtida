@@ -85,9 +85,9 @@ class StreakCalculator {
         let calendar = Calendar.current
         let sixtyDaysAgo = calendar.date(byAdding: .day, value: -60, to: Date()) ?? Date()
         
-        let prayerDaysRef = db.collection("users")
+        let prayerDaysRef = db.collection(FirestorePaths.users)
             .document(uid)
-            .collection("prayerDays")
+            .collection(FirestorePaths.prayerDays)
             .whereField("date", isGreaterThanOrEqualTo: Timestamp(date: sixtyDaysAgo))
             .order(by: "date", descending: true)
             .limit(to: 60)
@@ -106,7 +106,7 @@ class StreakCalculator {
         let streak = try await calculateStreak(uid: uid, prayerDays: prayerDays)
         
         // Update in Firestore
-        try await db.collection("users").document(uid).updateData([
+        try await db.collection(FirestorePaths.users).document(uid).updateData([
             "currentStreak": streak,
             "lastUpdatedAt": FieldValue.serverTimestamp()
         ])
@@ -140,8 +140,13 @@ class StreakCalculator {
             prayerDay.ishaStatus = PrayerStatus.fromFirestore(isha)
         }
         
-        // Check for menstrual day flag
         prayerDay.isMenstrualDay = data["isMenstrualDay"] as? Bool ?? false
+        prayerDay.fajrSunnahPrayed = data["fajrSunnahPrayed"] as? Bool ?? false
+        prayerDay.dhuhrSunnahPrayed = data["dhuhrSunnahPrayed"] as? Bool ?? false
+        prayerDay.asrSunnahPrayed = data["asrSunnahPrayed"] as? Bool ?? false
+        prayerDay.maghribSunnahPrayed = data["maghribSunnahPrayed"] as? Bool ?? false
+        prayerDay.ishaSunnahPrayed = data["ishaSunnahPrayed"] as? Bool ?? false
+        prayerDay.ishaWitrPrayed = data["ishaWitrPrayed"] as? Bool ?? false
         
         prayerDay.recalculateCredits()
         

@@ -51,33 +51,33 @@ struct JourneyMilestoneView: View {
     }
     
     private var signInPrompt: some View {
-        VStack(spacing: 28) {
+        VStack(spacing: 20) {
             ZStack {
                 Circle()
                     .fill(Color.mutedGold.opacity(0.15))
-                    .frame(width: 100, height: 100)
+                    .frame(width: 72, height: 72)
                 
                 Image(systemName: "chart.line.uptrend.xyaxis")
-                    .font(.system(size: 45))
+                    .font(.system(size: 32))
                     .foregroundColor(.mutedGold)
             }
             
-            VStack(spacing: 12) {
+            VStack(spacing: 8) {
                 Text("Your Journey Awaits")
-                    .font(.system(size: 24, weight: .semibold, design: .rounded))
+                    .font(.system(size: 20, weight: .semibold, design: .rounded))
                     .foregroundColor(Color.warmText(colorScheme))
                 
                 Text("Sign in to track your progress")
-                    .font(.system(size: 16))
+                    .font(.system(size: 14))
                     .foregroundColor(Color.warmSecondaryText(colorScheme))
             }
         }
-        .padding(48)
+        .padding(32)
     }
     
     private var scrollContent: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 24) {
+            VStack(spacing: 16) {
                 // Total score hero card
                 totalScoreHero
                 
@@ -94,15 +94,15 @@ struct JourneyMilestoneView: View {
                 disclaimerText
             }
             .padding(.horizontal, 20)
-            .padding(.top, 16)
-            .padding(.bottom, 32)
+            .padding(.top, 12)
+            .padding(.bottom, 24)
         }
     }
     
     // MARK: - Total Score Hero
     
     private var totalScoreHero: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 12) {
             // Icon with glow effect
             ZStack {
                 Circle()
@@ -110,44 +110,46 @@ struct JourneyMilestoneView: View {
                         RadialGradient(
                             colors: [Color.mutedGold.opacity(0.3), Color.mutedGold.opacity(0.05)],
                             center: .center,
-                            startRadius: 20,
-                            endRadius: 60
+                            startRadius: 16,
+                            endRadius: 44
                         )
                     )
-                    .frame(width: 100, height: 100)
+                    .frame(width: 72, height: 72)
                 
                 Circle()
                     .fill(Color.mutedGold.opacity(0.2))
-                    .frame(width: 80, height: 80)
+                    .frame(width: 56, height: 56)
                 
                 Image(systemName: "star.fill")
-                    .font(.system(size: 36))
+                    .font(.system(size: 26))
                     .foregroundColor(.mutedGold)
             }
             
             // Score
-            VStack(spacing: 8) {
+            VStack(spacing: 4) {
                 Text("\(viewModel.totalCredits)")
-                    .font(.system(size: 52, weight: .bold, design: .rounded))
+                    .font(.system(size: 38, weight: .bold, design: .rounded))
                     .foregroundColor(Color.warmText(colorScheme))
+                    .minimumScaleFactor(0.7)
                 
                 Text("Consistency Score")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(Color.warmSecondaryText(colorScheme))
             }
             
             // Streak badge
             if viewModel.currentStreak > 0 {
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     Image(systemName: "flame.fill")
+                        .font(.system(size: 12))
                         .foregroundColor(.softTerracotta)
                     
                     Text("\(viewModel.currentStreak) day streak")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(Color.warmText(colorScheme))
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
                 .background(
                     Capsule()
                         .fill(Color.softTerracotta.opacity(0.15))
@@ -155,7 +157,7 @@ struct JourneyMilestoneView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 32)
+        .padding(.vertical, 20)
         .warmCard(elevation: .high)
         .accessibleCard(label: "Total consistency score: \(viewModel.totalCredits)")
     }
@@ -163,29 +165,29 @@ struct JourneyMilestoneView: View {
     // MARK: - Current Milestone Card
     
     private var currentMilestoneCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
             WarmSectionHeader("Current Milestone", icon: "flag.fill")
             
-            HStack(spacing: 16) {
+            HStack(spacing: 12) {
                 // Icon
                 ZStack {
                     Circle()
                         .fill(LinearGradient.goldAccent.opacity(0.2))
-                        .frame(width: 60, height: 60)
+                        .frame(width: 44, height: 44)
                     
                     Image(systemName: viewModel.currentMilestone.icon)
-                        .font(.system(size: 26))
+                        .font(.system(size: 18))
                         .foregroundColor(.mutedGold)
                 }
                 
                 // Info
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(viewModel.currentMilestone.name)
-                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .foregroundColor(Color.warmText(colorScheme))
                     
                     Text(viewModel.currentMilestone.arabicName)
-                        .font(.system(size: 15, weight: .medium, design: .serif))
+                        .font(.system(size: 12, weight: .medium, design: .serif))
                         .foregroundColor(Color.warmSecondaryText(colorScheme))
                 }
                 
@@ -193,11 +195,11 @@ struct JourneyMilestoneView: View {
                 
                 // Achieved badge
                 Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 28))
+                    .font(.system(size: 22))
                     .foregroundColor(.prayerOnTime)
             }
         }
-        .padding(20)
+        .padding(16)
         .warmCard(elevation: .medium)
         .accessibleCard(label: "Current milestone: \(viewModel.currentMilestone.name)")
     }
@@ -385,7 +387,9 @@ struct WarmRecentDayRow: View {
         }
         let formatter = DateFormatter()
         formatter.dateFormat = "EEE, MMM d"
-        return formatter.string(from: date)
+        let greg = formatter.string(from: date)
+        let hijri = HijriCalendarService.hijriDisplayString(for: date, method: ThemeManager.shared.hijriMethod)
+        return "\(greg) · \(hijri)"
     }
     
     private func statusColor(for status: PrayerStatus) -> Color {
@@ -398,6 +402,7 @@ struct WarmRecentDayRow: View {
         case .prayedAtMasjid: return Color.purple.opacity(0.8)
         case .prayedAtHome: return Color.mint.opacity(0.8)
         case .menstrual: return Color.red.opacity(0.7)
+        case .jummah: return Color.mutedGold
         }
     }
 }

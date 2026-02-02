@@ -16,6 +16,8 @@ enum PrayerType: String, CaseIterable, Identifiable, Codable {
     case asr = "asr"
     case maghrib = "maghrib"
     case isha = "isha"
+    /// Jumu'ah (Friday prayer) – distinct prayer; replaces Dhuhr for brothers on Friday only
+    case jumuah = "jumuah"
     
     var id: String { rawValue }
     
@@ -26,6 +28,7 @@ enum PrayerType: String, CaseIterable, Identifiable, Codable {
         case .asr: return "Asr"
         case .maghrib: return "Maghrib"
         case .isha: return "Isha"
+        case .jumuah: return "Jumu'ah"
         }
     }
     
@@ -36,6 +39,7 @@ enum PrayerType: String, CaseIterable, Identifiable, Codable {
         case .asr: return "العصر"
         case .maghrib: return "المغرب"
         case .isha: return "العشاء"
+        case .jumuah: return "الجُمعة"
         }
     }
     
@@ -50,6 +54,7 @@ enum PrayerType: String, CaseIterable, Identifiable, Codable {
         case .asr: return "sun.haze.fill"
         case .maghrib: return "sunset.fill"
         case .isha: return "moon.stars.fill"
+        case .jumuah: return "building.columns.fill"
         }
     }
     
@@ -60,7 +65,22 @@ enum PrayerType: String, CaseIterable, Identifiable, Codable {
         case .asr: return .blue
         case .maghrib: return .pink
         case .isha: return .indigo
+        case .jumuah: return Color.mutedGold
         }
+    }
+    
+    /// Five prayers to display for a given day and gender. Brothers on Friday: Jumu'ah replaces Dhuhr; otherwise standard five.
+    static func prayersToDisplay(for date: Date, gender: UserGender?) -> [PrayerType] {
+        let isFriday = Calendar.current.component(.weekday, from: date) == 6
+        if isFriday && gender == .brother {
+            return [.fajr, .jumuah, .asr, .maghrib, .isha]
+        }
+        return [.fajr, .dhuhr, .asr, .maghrib, .isha]
+    }
+    
+    /// Standard five (no Jumu'ah substitution) for iteration where day/gender context is not needed
+    static var standardFive: [PrayerType] {
+        [.fajr, .dhuhr, .asr, .maghrib, .isha]
     }
 }
 
@@ -75,6 +95,8 @@ enum PrayerStatus: String, CaseIterable, Identifiable, Codable {
     case prayedAtMasjid = "prayedAtMasjid"  // Prayed at masjid (brothers only)
     case prayedAtHome = "prayedAtHome"      // Prayed at home (sisters only)
     case menstrual = "menstrual"            // Menstrual period (sisters only)
+    /// Jumu'ah (Friday prayer) – brothers only, Dhuhr slot on Friday; highest reward for that day
+    case jummah = "jummah"
     
     var id: String { rawValue }
     
@@ -97,6 +119,7 @@ enum PrayerStatus: String, CaseIterable, Identifiable, Codable {
         case .prayedAtMasjid: return "In masjid (jamat)"
         case .prayedAtHome: return "At home (on time)"
         case .menstrual: return "Not applicable 🩸"
+        case .jummah: return "In masjid (Jumu'ah)"
         }
     }
     
@@ -110,6 +133,7 @@ enum PrayerStatus: String, CaseIterable, Identifiable, Codable {
         case .prayedAtMasjid: return "في المسجد"
         case .prayedAtHome: return "في البيت"
         case .menstrual: return "الحيض"
+        case .jummah: return "الجُمعة"
         }
     }
     
@@ -132,6 +156,7 @@ enum PrayerStatus: String, CaseIterable, Identifiable, Codable {
         case .prayedAtMasjid: return .purple  // Distinct color for masjid
         case .prayedAtHome: return .mint  // Soft color for home prayer
         case .menstrual: return .red.opacity(0.7)  // Soft red for menstrual period
+        case .jummah: return Color.mutedGold  // Jumu'ah: highest reward, gold
         }
     }
     
@@ -145,6 +170,7 @@ enum PrayerStatus: String, CaseIterable, Identifiable, Codable {
         case .prayedAtMasjid: return "building.columns.fill"
         case .prayedAtHome: return "house.fill"
         case .menstrual: return "drop.fill"  // Menstrual icon
+        case .jummah: return "building.columns.fill"  // Masjid / Jumu'ah
         }
     }
     
@@ -153,10 +179,17 @@ enum PrayerStatus: String, CaseIterable, Identifiable, Codable {
     static func statusesForBrother() -> [PrayerStatus] {
         return [.prayedAtMasjid, .onTime, .qada, .missed, .none]
     }
+    /// Brothers logging Jumu'ah (Friday only): In masjid (Jumu'ah), Missed, Not logged. No Qada for Jumu'ah.
+    static func statusesForJummahBrother() -> [PrayerStatus] {
+        return [.jummah, .missed, .none]
+    }
     /// Sisters: At home (on time), Qada, Missed, Not applicable 🩸. Not applicable 🩸 does not penalize streaks.
     static func statusesForSister() -> [PrayerStatus] {
         return [.prayedAtHome, .qada, .missed, .menstrual]
     }
+    
+    /// Statuses that count as "performed" (Sunnah toggle and bonus apply)
+    static let performedStatuses: Set<PrayerStatus> = [.onTime, .late, .qada, .prayedAtMasjid, .prayedAtHome, .jummah]
 
     /// Parse status from Firestore with best-effort migration for legacy/unknown values. Do not crash on unknown strings.
     static func fromFirestore(_ raw: String) -> PrayerStatus {
@@ -164,8 +197,33 @@ enum PrayerStatus: String, CaseIterable, Identifiable, Codable {
         switch raw.lowercased() {
         case "later": return .late
         case "made up", "madeup": return .qada
+        case "jumu'ah", "jumua", "jumah": return .jummah
         default: return .none
         }
+    }
+}
+
+// MARK: - Sister Jumu'ah Status (Friday optional for sisters only)
+
+/// Sisters on Friday: optional Jumu'ah tracking. Does not replace Dhuhr; no Qada; no double-count.
+enum SisterJumuahStatus: String, CaseIterable, Identifiable, Codable {
+    case prayed = "prayed"
+    case didNotPray = "didNotPray"
+    case notApplicable = "notApplicable"  // menstrual
+    
+    var id: String { rawValue }
+    
+    var displayName: String {
+        switch self {
+        case .prayed: return "Jumu'ah prayed"
+        case .didNotPray: return "Did not pray Jumu'ah"
+        case .notApplicable: return "Not applicable 🩸"
+        }
+    }
+    
+    static func fromFirestore(_ raw: String?) -> SisterJumuahStatus? {
+        guard let raw = raw else { return nil }
+        return SisterJumuahStatus(rawValue: raw)
     }
 }
 

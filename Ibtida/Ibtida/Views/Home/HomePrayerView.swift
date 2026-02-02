@@ -7,13 +7,20 @@
 
 import SwiftUI
 
+// BEHAVIOR LOCK: Sheet route drives fasting → prayer step; never present blank sheet. See Core/BEHAVIOR_LOCK.md
 // MARK: - Prayer sheet route (single source of truth; prevents blank first tap)
 
+private enum LogPrayerStep {
+    case needFastingAnswer
+    case prayerStatus
+}
+
 private enum HomePrayerSheetRoute: Identifiable {
-    case prayerStatus(PrayerType)
-    var id: String {
+    case logPrayer(prayer: PrayerType, step: LogPrayerStep)
+    var id: String { "log-\(prayer.rawValue)" }
+    var prayer: PrayerType {
         switch self {
-        case .prayerStatus(let p): return "prayer-\(p.rawValue)"
+        case .logPrayer(let p, _): return p
         }
     }
 }
@@ -24,6 +31,7 @@ struct HomePrayerView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @Environment(\.colorScheme) var colorScheme
     @State private var sheetRoute: HomePrayerSheetRoute?
+    @State private var showSisterJumuahSheet = false
     
     var body: some View {
         NavigationStack {
@@ -34,27 +42,46 @@ struct HomePrayerView: View {
             .tabBarScrollClearance()
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    ProfileToolbarButton()
+                }
+            }
             .onAppear { handleOnAppear() }
             .refreshable { await refreshData() }
             .sheet(item: $sheetRoute) { route in
                 switch route {
-                case .prayerStatus(let prayer):
-                    WarmPrayerStatusSheet(
-                        prayer: prayer,
-                        currentStatus: viewModel.todayPrayers.status(for: prayer),
-                        isLoading: viewModel.isLoading,
-                        onSelect: { status in
-                            #if DEBUG
-                            print("📥 HomePrayerView: prayer status selected \(prayer.rawValue) -> \(status.rawValue)")
-                            #endif
-                            Task {
-                                await viewModel.updatePrayerStatus(prayer: prayer, status: status)
+                case .logPrayer(let prayer, let step):
+                    if step == .needFastingAnswer {
+                        FastingPromptSheet(
+                            date: Date(),
+                            method: themeManager.hijriMethod,
+                            onAnswer: { answer in
+                                saveFastingAnswerAndContinue(prayer: prayer, answer: answer)
                             }
-                            sheetRoute = nil
-                        }
-                    )
-                    .presentationDetents([.large])
-                    .presentationDragIndicator(.visible)
+                        )
+                        .presentationDetents([.medium, .large])
+                        .presentationDragIndicator(.visible)
+                    } else {
+                        WarmPrayerStatusSheet(
+                            prayer: prayer,
+                            currentStatus: viewModel.todayPrayers.status(for: prayer),
+                            currentSunnahPrayed: viewModel.todayPrayers.sunnahPrayed(for: prayer),
+                            currentWitrPrayed: viewModel.todayPrayers.witrPrayed(for: prayer),
+                            isLoading: viewModel.isLoading,
+                            onSelect: { status, sunnahPrayed, witrPrayed in
+                                #if DEBUG
+                                print("📥 HomePrayerView: prayer \(prayer.rawValue) -> \(status.rawValue), sunnah=\(sunnahPrayed?.description ?? "nil"), witr=\(witrPrayed?.description ?? "nil")")
+                                #endif
+                                Task {
+                                    await viewModel.updatePrayerStatus(prayer: prayer, status: status, sunnahPrayed: sunnahPrayed, witrPrayed: witrPrayed)
+                                }
+                                sheetRoute = nil
+                            }
+                        )
+                        .presentationDetents([.large])
+                        .presentationDragIndicator(.visible)
+                    }
                 }
             }
         }
@@ -220,13 +247,13 @@ struct HomePrayerView: View {
                     WarmSectionHeader("Today's Ṣalāh", icon: "sun.max.fill", subtitle: formattedDate)
                 }
                 
-                // Jumu'ah highlight for brothers on Fridays
+                // Jumu'ah highlight for brothers on Fridays (Jumu'ah replaces Dhuhr in the row)
                 if isFriday && themeManager.userGender == .brother {
                     HStack(spacing: 8) {
                         Image(systemName: "building.columns.fill")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.mutedGold)
-                        Text("Jumu'ah (Friday Prayer)")
+                        Text("Jumu'ah — Friday prayer (replaces Dhuhr today)")
                             .font(.system(size: 13, weight: .semibold, design: .rounded))
                             .foregroundColor(.mutedGold)
                     }
@@ -242,18 +269,37 @@ struct HomePrayerView: View {
             // 5 Prayer circles
             prayerCirclesRow
             
+            // Sisters on Friday: optional Jumu'ah (prayed / did not / not applicable)
+            if isFriday && themeManager.userGender == .sister {
+                sisterJumuahOptionalRow
+            }
+            
             // Today's progress bar
             todayProgressBar
         }
         .padding(20)
         .warmCard(elevation: .high)
         .accessibleCard(label: "Today's prayer tracking")
+        .sheet(isPresented: $showSisterJumuahSheet) {
+            SisterJumuahSheet(
+                currentStatus: viewModel.todayPrayers.sisterJumuahStatus,
+                onSelect: { status in
+                    Task { await viewModel.updateSisterJumuahStatus(status) }
+                    showSisterJumuahSheet = false
+                }
+            )
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+        }
     }
     
     private var formattedDate: String {
+        let date = Date()
         let formatter = DateFormatter()
         formatter.dateFormat = "EEEE, MMM d"
-        return formatter.string(from: Date())
+        let greg = formatter.string(from: date)
+        let hijri = HijriCalendarService.hijriDisplayString(for: date, method: themeManager.hijriMethod)
+        return "\(greg) · \(hijri)"
     }
     
     private var isFriday: Bool {
@@ -261,8 +307,9 @@ struct HomePrayerView: View {
     }
     
     private var prayerCirclesRow: some View {
-        HStack(spacing: 8) {
-            ForEach(PrayerType.allCases) { prayer in
+        let prayers = PrayerType.prayersToDisplay(for: Date(), gender: themeManager.userGender)
+        return HStack(spacing: 8) {
+            ForEach(prayers, id: \.rawValue) { prayer in
                 WarmPrayerCircle(
                     prayer: prayer,
                     status: viewModel.todayPrayers.status(for: prayer),
@@ -272,7 +319,12 @@ struct HomePrayerView: View {
                         print("📤 HomePrayerView: prayer circle tapped \(prayer.rawValue)")
                         #endif
                         HapticFeedback.forPrayerStatus(viewModel.todayPrayers.status(for: prayer))
-                        sheetRoute = .prayerStatus(prayer)
+                        let date = Date()
+                        let method = themeManager.hijriMethod
+                        let needFasting = HijriCalendarService.shouldShowFastingPrompt(on: date, method: method)
+                        let alreadyAnswered = viewModel.todayDailyLog?.hasFastingAnswer ?? false
+                        let step: LogPrayerStep = (needFasting && !alreadyAnswered) ? .needFastingAnswer : .prayerStatus
+                        sheetRoute = .logPrayer(prayer: prayer, step: step)
                     }
                 )
                 .environmentObject(ThemeManager.shared)
@@ -280,10 +332,43 @@ struct HomePrayerView: View {
         }
     }
     
+    /// Sisters on Friday only: optional Jumu'ah row (prayed / did not / not applicable). Tapping opens sheet.
+    private var sisterJumuahOptionalRow: some View {
+        Button {
+            showSisterJumuahSheet = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "building.columns.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.mutedGold)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Jumu'ah (optional)")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundColor(Color.warmText(colorScheme))
+                    Text(viewModel.todayPrayers.sisterJumuahStatus?.displayName ?? "Tap to log")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Color.warmSecondaryText(colorScheme))
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(Color.warmSecondaryText(colorScheme).opacity(0.7))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.warmSurface(colorScheme))
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Jumu'ah optional: \(viewModel.todayPrayers.sisterJumuahStatus?.displayName ?? "Tap to log")")
+        .accessibilityHint("Opens options: Jumu'ah prayed, Did not pray, Not applicable")
+    }
+    
     private var todayProgressBar: some View {
-        let completed = PrayerType.allCases.filter { 
-            viewModel.todayPrayers.status(for: $0) != .none 
-        }.count
+        let prayers = PrayerType.prayersToDisplay(for: Date(), gender: themeManager.userGender)
+        let completed = prayers.filter { viewModel.todayPrayers.status(for: $0) != .none }.count
         let progress = Double(completed) / 5.0
         
         return VStack(spacing: 8) {
@@ -411,6 +496,44 @@ struct HomePrayerView: View {
     private func refreshData() async {
         viewModel.refresh()
     }
+    
+    /// Build today's daily log from fasting answer, save to Firestore, update VM, then show prayer status step.
+    private func saveFastingAnswerAndContinue(prayer: PrayerType, answer: FastingAnswer) {
+        let date = Date()
+        let dateString = DateUtils.dayId()
+        let method = themeManager.hijriMethod
+        let h = HijriCalendarService.hijriComponents(for: date, method: method)
+        let reason: FastingReason = HijriCalendarService.isWhiteDay(date, method: method)
+            ? .whiteDay
+            : (HijriCalendarService.weekday(for: date) == 2 ? .monday : (HijriCalendarService.weekday(for: date) == 5 ? .thursday : .other))
+        let isFasting: Bool? = answer == .yes ? true : (answer == .no ? false : nil)
+        let log = DailyLog(
+            dateString: dateString,
+            timezone: TimeZone.current.identifier,
+            hijriYear: h.year,
+            hijriMonth: h.month,
+            hijriDay: h.day,
+            hijriDisplay: HijriCalendarService.hijriDisplayString(for: date, method: method),
+            isFasting: isFasting,
+            fastingReason: reason,
+            fastingAnswered: true,
+            updatedAt: date
+        )
+        Task {
+            do {
+                _ = try await DailyLogFirestoreService.shared.saveDailyLogAndAwardFastingIfNeeded(log)
+                await MainActor.run {
+                    viewModel.setTodayDailyLog(log)
+                    sheetRoute = .logPrayer(prayer: prayer, step: .prayerStatus)
+                }
+            } catch {
+                await MainActor.run {
+                    viewModel.setTodayDailyLog(log)
+                    sheetRoute = .logPrayer(prayer: prayer, step: .prayerStatus)
+                }
+            }
+        }
+    }
 }
 
 // MARK: - Warm Prayer Circle
@@ -424,6 +547,10 @@ struct WarmPrayerCircle: View {
     @Environment(\.colorScheme) var colorScheme
     @EnvironmentObject var themeManager: ThemeManager
     @State private var isPulsing = false
+    
+    private var isFriday: Bool {
+        Calendar.current.component(.weekday, from: Date()) == 6
+    }
     @State private var showCheckAnimation = false
     
     var body: some View {
@@ -459,7 +586,7 @@ struct WarmPrayerCircle: View {
                 .animation(.easeOut(duration: 0.3), value: showCheckAnimation)
                 .animation(.easeInOut(duration: 0.6).repeatCount(2, autoreverses: true), value: isPulsing)
                 
-                // Prayer name
+                // Prayer name (Jumu'ah replaces Dhuhr for brothers on Friday via prayersToDisplay)
                 Text(prayer.displayName)
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .foregroundColor(Color.warmText(colorScheme))
@@ -516,6 +643,7 @@ struct WarmPrayerCircle: View {
         case .prayedAtMasjid: return Color.purple.opacity(0.15)
         case .prayedAtHome: return Color.mint.opacity(0.15)
         case .menstrual: return Color.gray.opacity(0.1) // Neutral, not red
+        case .jummah: return Color.mutedGold.opacity(0.15)
         }
     }
     
@@ -529,6 +657,7 @@ struct WarmPrayerCircle: View {
         case .prayedAtMasjid: return Color.purple
         case .prayedAtHome: return Color.mint
         case .menstrual: return Color.gray.opacity(0.4) // Neutral border
+        case .jummah: return Color.mutedGold
         }
     }
     
@@ -542,6 +671,7 @@ struct WarmPrayerCircle: View {
         case .prayedAtMasjid: return "building.columns.fill"
         case .prayedAtHome: return "house.fill"
         case .menstrual: return "drop.fill"
+        case .jummah: return "building.columns.fill"
         }
     }
     
@@ -556,6 +686,7 @@ struct WarmPrayerCircle: View {
         case .prayedAtMasjid: return "building.columns.fill"
         case .prayedAtHome: return "house.fill"
         case .menstrual: return "minus.circle.fill" // Clear "N/A" icon for sisters
+        case .jummah: return "building.columns.fill"
         }
     }
     
@@ -569,6 +700,98 @@ struct WarmPrayerCircle: View {
         case .prayedAtMasjid: return Color.purple
         case .prayedAtHome: return Color.mint
         case .menstrual: return Color.gray.opacity(0.5) // Neutral gray
+        case .jummah: return Color.mutedGold
+        }
+    }
+}
+
+// MARK: - Fasting Prompt Sheet (once per day on Mon/Thu or White Days)
+
+struct FastingPromptSheet: View {
+    let date: Date
+    let method: HijriMethod
+    let onAnswer: (FastingAnswer) -> Void
+    
+    @Environment(\.colorScheme) var colorScheme
+    
+    private var reasonLabel: String? {
+        if HijriCalendarService.isWhiteDay(date, method: method) {
+            return "White Day (13/14/15 Hijri)"
+        }
+        let w = HijriCalendarService.weekday(for: date)
+        if w == 2 { return "Monday (Sunnah)" }
+        if w == 5 { return "Thursday (Sunnah)" }
+        return nil
+    }
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.warmBackground(colorScheme, gender: nil).ignoresSafeArea()
+                VStack(spacing: 24) {
+                    VStack(spacing: 12) {
+                        Image(systemName: "moon.stars.fill")
+                            .font(.system(size: 44))
+                            .foregroundColor(.mutedGold)
+                        Text("Are you fasting today?")
+                            .font(.system(size: 20, weight: .semibold, design: .rounded))
+                            .foregroundColor(Color.warmText(colorScheme))
+                            .multilineTextAlignment(.center)
+                        if let label = reasonLabel {
+                            Text(label)
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color.warmSecondaryText(colorScheme))
+                        }
+                    }
+                    .padding(.top, 20)
+                    
+                    VStack(spacing: 12) {
+                        Button(action: { onAnswer(.yes) }) {
+                            HStack {
+                                Image(systemName: "checkmark.circle.fill")
+                                Text("Yes (fasting)")
+                            }
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Color.mutedGold, in: RoundedRectangle(cornerRadius: 12))
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Button(action: { onAnswer(.no) }) {
+                            HStack {
+                                Image(systemName: "xmark.circle")
+                                Text("No")
+                            }
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(Color.warmText(colorScheme))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Color.warmBorder(colorScheme), in: RoundedRectangle(cornerRadius: 12))
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Button(action: { onAnswer(.preferNotToSay) }) {
+                            Text("Not sure / Prefer not to say")
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundColor(Color.warmSecondaryText(colorScheme))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 24)
+                    
+                    Text("Saved once per day — you won’t be asked again today.")
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundColor(Color.warmSecondaryText(colorScheme).opacity(0.8))
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 8)
+                    
+                    Spacer(minLength: 0)
+                }
+            }
+            .navigationTitle("Sunnah Fast")
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 }
@@ -578,26 +801,77 @@ struct WarmPrayerCircle: View {
 struct WarmPrayerStatusSheet: View {
     let prayer: PrayerType
     let currentStatus: PrayerStatus
+    var currentSunnahPrayed: Bool = false
+    var currentWitrPrayed: Bool = false
     var isLoading: Bool = false
-    let onSelect: (PrayerStatus) -> Void
+    /// (status, sunnahPrayed, witrPrayed). witrPrayed is non-nil only for Isha.
+    let onSelect: (PrayerStatus, Bool?, Bool?) -> Void
     
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) var colorScheme
+    @State private var selectedStatus: PrayerStatus?
+    /// For Isha: remember Sunnah choice until user selects Witr
+    @State private var selectedSunnah: Bool? = nil
     
     // Get user gender from ThemeManager
     private var userGender: UserGender? {
         ThemeManager.shared.userGender
     }
     
-    // Get gender-specific status options
+    /// Friday in user's local timezone (for Jumu'ah)
+    private var isFriday: Bool {
+        Calendar.current.component(.weekday, from: Date()) == 6
+    }
+    
+    // Get gender-specific status options. Jumu'ah (brothers Friday): In masjid (Jumu'ah), Missed, Not logged only. No Qada.
     private var availableStatuses: [PrayerStatus] {
         if let gender = userGender {
-            return gender == .brother 
+            if prayer == .jumuah && gender == .brother {
+                return PrayerStatus.statusesForJummahBrother()
+            }
+            return gender == .brother
                 ? PrayerStatus.statusesForBrother()
                 : PrayerStatus.statusesForSister()
         }
-        // Default to brother options if gender not set
         return PrayerStatus.statusesForBrother()
+    }
+    
+    private var showSunnahRow: Bool {
+        guard let s = selectedStatus else { return false }
+        return PrayerStatus.performedStatuses.contains(s) && s != .menstrual
+    }
+    
+    /// Witr question only for Isha, and only when we're showing Sunnah (performed)
+    private var showWitrRow: Bool {
+        prayer == .isha && showSunnahRow
+    }
+    
+    private func handleStatusTap(_ status: PrayerStatus) {
+        if status == .none {
+            onSelect(.none, nil, nil)
+            return
+        }
+        if PrayerStatus.performedStatuses.contains(status) && status != .menstrual {
+            selectedStatus = status
+            if prayer != .isha { selectedSunnah = nil }
+        } else {
+            onSelect(status, nil, nil)
+        }
+    }
+    
+    private func confirmWithSunnah(_ sunnahPrayed: Bool?) {
+        guard let s = selectedStatus else { return }
+        if prayer == .isha {
+            selectedSunnah = sunnahPrayed
+            // Don't dismiss; Witr row is shown next
+        } else {
+            onSelect(s, sunnahPrayed, nil)
+        }
+    }
+    
+    private func confirmWithWitr(_ witrPrayed: Bool) {
+        guard let s = selectedStatus else { return }
+        onSelect(s, selectedSunnah, witrPrayed)
     }
     
     var body: some View {
@@ -622,14 +896,14 @@ struct WarmPrayerStatusSheet: View {
                             Text(prayer.displayName)
                                 .font(.system(size: 22, weight: .semibold, design: .rounded))
                                 .foregroundColor(Color.warmText(colorScheme))
-                                .dynamicTypeSize(...DynamicTypeSize.accessibility3) // Support larger text
+                                .dynamicTypeSize(...DynamicTypeSize.accessibility3)
                             
                             Text(prayer.arabicName)
                                 .font(.system(size: 16, weight: .medium, design: .serif))
                                 .foregroundColor(Color.warmSecondaryText(colorScheme))
                                 .lineLimit(2)
                                 .minimumScaleFactor(0.85)
-                                .environment(\.layoutDirection, .rightToLeft) // RTL for Arabic
+                                .environment(\.layoutDirection, .rightToLeft)
                                 .dynamicTypeSize(...DynamicTypeSize.accessibility3)
                         }
                     }
@@ -642,22 +916,20 @@ struct WarmPrayerStatusSheet: View {
                             .padding(.vertical, 24)
                         Spacer(minLength: 0)
                     } else {
-                        // Status options (gender-specific) - Scrollable to ensure all options visible
                         ScrollView {
                             VStack(spacing: 12) {
                                 ForEach(availableStatuses, id: \.self) { status in
                                     WarmStatusOptionButton(
                                         status: status,
-                                        isSelected: currentStatus == status,
+                                        isSelected: (selectedStatus ?? currentStatus) == status,
                                         gender: userGender,
-                                        onTap: { onSelect(status) }
+                                        onTap: { handleStatusTap(status) }
                                     )
-                                    .dynamicTypeSize(...DynamicTypeSize.accessibility3) // Support larger text
+                                    .dynamicTypeSize(...DynamicTypeSize.accessibility3)
                                 }
                                 
-                                // Clear option (sets .none = "Not logged")
                                 if currentStatus != .none {
-                                    Button(action: { onSelect(.none) }) {
+                                    Button(action: { onSelect(.none, nil, nil) }) {
                                         HStack {
                                             Image(systemName: "arrow.uturn.backward")
                                             Text("Clear")
@@ -668,9 +940,72 @@ struct WarmPrayerStatusSheet: View {
                                         .padding(.vertical, 14)
                                     }
                                 }
+                                
+                                if showSunnahRow {
+                                    VStack(alignment: .leading, spacing: 10) {
+                                        Text("Did you pray the Sunnah for this prayer?")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundColor(Color.warmSecondaryText(colorScheme))
+                                        HStack(spacing: 12) {
+                                            ForEach([(true, "Yes"), (false, "No")], id: \.0) { value, label in
+                                                Button(action: { confirmWithSunnah(value) }) {
+                                                    Text(label)
+                                                        .font(.system(size: 14, weight: .medium))
+                                                        .foregroundColor(value == (selectedSunnah ?? currentSunnahPrayed) ? .white : Color.warmText(colorScheme))
+                                                        .padding(.horizontal, 16)
+                                                        .padding(.vertical, 10)
+                                                        .background(value == (selectedSunnah ?? currentSunnahPrayed) ? Color.mutedGold : Color.warmBorder(colorScheme), in: Capsule())
+                                                }
+                                                .buttonStyle(.plain)
+                                            }
+                                            Button(action: { confirmWithSunnah(nil) }) {
+                                                Text("Not sure")
+                                                    .font(.system(size: 14, weight: .medium))
+                                                    .foregroundColor(Color.warmSecondaryText(colorScheme))
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.top, 8)
+                                    .padding(.vertical, 12)
+                                    .background(Color.warmBorder(colorScheme).opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
+                                }
+                                
+                                if showWitrRow {
+                                    VStack(alignment: .leading, spacing: 10) {
+                                        Text("Witr prayed?")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundColor(Color.warmSecondaryText(colorScheme))
+                                        HStack(spacing: 12) {
+                                            Button(action: { confirmWithWitr(true) }) {
+                                                Text("Yes")
+                                                    .font(.system(size: 14, weight: .medium))
+                                                    .foregroundColor(currentWitrPrayed ? .white : Color.warmText(colorScheme))
+                                                    .padding(.horizontal, 16)
+                                                    .padding(.vertical, 10)
+                                                    .background(currentWitrPrayed ? Color.mutedGold : Color.warmBorder(colorScheme), in: Capsule())
+                                            }
+                                            .buttonStyle(.plain)
+                                            Button(action: { confirmWithWitr(false) }) {
+                                                Text("No")
+                                                    .font(.system(size: 14, weight: .medium))
+                                                    .foregroundColor(!currentWitrPrayed ? .white : Color.warmText(colorScheme))
+                                                    .padding(.horizontal, 16)
+                                                    .padding(.vertical, 10)
+                                                    .background(!currentWitrPrayed ? Color.mutedGold : Color.warmBorder(colorScheme), in: Capsule())
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.top, 8)
+                                    .padding(.vertical, 12)
+                                    .background(Color.warmBorder(colorScheme).opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
+                                }
                             }
                             .padding(.horizontal, 24)
-                            .padding(.bottom, 24) // Extra padding to ensure last option is visible
+                            .padding(.bottom, 24)
                         }
                     }
                 }
@@ -684,7 +1019,7 @@ struct WarmPrayerStatusSheet: View {
                 }
             }
         }
-        .presentationDetents([.large]) // Ensure full height, no cutoff
+        .presentationDetents([.large])
         .presentationDragIndicator(.visible)
     }
 }
@@ -774,6 +1109,60 @@ struct WarmStatusOptionButton: View {
         case .prayedAtMasjid: return Color.purple
         case .prayedAtHome: return Color.mint
         case .menstrual: return Color.red.opacity(0.7)
+        case .jummah: return Color.mutedGold
+        }
+    }
+}
+
+// MARK: - Sister Jumu'ah Sheet (Friday, sisters only)
+
+struct SisterJumuahSheet: View {
+    let currentStatus: SisterJumuahStatus?
+    let onSelect: (SisterJumuahStatus) -> Void
+    @Environment(\.colorScheme) var colorScheme
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 20) {
+                Text("Sisters: Jumu'ah is optional. Did you pray Jumu'ah today?")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(Color.warmSecondaryText(colorScheme))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+                
+                ForEach(SisterJumuahStatus.allCases) { status in
+                    Button {
+                        onSelect(status)
+                    } label: {
+                        HStack {
+                            Text(status.displayName)
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(Color.warmText(colorScheme))
+                            Spacer()
+                            if currentStatus == status {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.mutedGold)
+                            }
+                        }
+                        .padding(16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.warmSurface(colorScheme))
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(20)
+            .navigationTitle("Jumu'ah (optional)")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
         }
     }
 }

@@ -60,6 +60,11 @@ struct DonationsPage: View {
             }
             .navigationTitle("Donations")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    ProfileToolbarButton()
+                }
+            }
             .onAppear {
                 myRequestsViewModel.loadRequests()
             }

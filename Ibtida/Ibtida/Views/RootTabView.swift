@@ -2,66 +2,80 @@
 //  RootTabView.swift
 //  Ibtida
 //
-//  Main tab view - navigation hub for the app
-//  Tab order: Home (Salah Tracker), Journey, Donations (Requests inside), Dua Wall, Profile
+//  Main tab view - exactly FIVE tabs: Home, Journey, Reels, Donate, Dua.
+//  Profile/Settings (and Admin when isAdmin) are reached via Profile button in each tab's toolbar.
 //
 
 import SwiftUI
 
+private let selectedTabKey = "ibtida_selected_tab"
+
+// Tab tags: 0 = Home, 1 = Journey, 2 = Reels, 3 = Donate, 4 = Dua
+private let tabCount = 5
+
 struct RootTabView: View {
     @EnvironmentObject var authService: AuthService
     @EnvironmentObject var themeManager: ThemeManager
-    @State private var selectedTab = 0
-    
-    /// Tab indices: Home=0, Journey=1, Donate=2, Duas=3, Profile=4, Admin=5 (only when isAdmin)
-    private var showAdminTab: Bool { authService.isAdmin }
+    @Environment(\.scenePhase) private var scenePhase
+    @ObservedObject private var calendarConfig = CalendarConfigManager.shared
+    @State private var selectedTab: Int = (UserDefaults.standard.object(forKey: selectedTabKey) as? Int).flatMap { $0 >= 0 && $0 < tabCount ? $0 : nil } ?? 0
     
     var body: some View {
         TabView(selection: $selectedTab) {
-            // Tab 1: Home (Salah Tracker)
             HomePrayerView()
                 .environmentObject(authService)
+                .environmentObject(themeManager)
                 .tabItem { Label("Home", systemImage: "house.fill") }
                 .tag(0)
             
-            // Tab 2: Journey
             JourneyView()
                 .environmentObject(authService)
+                .environmentObject(themeManager)
                 .tabItem { Label("Journey", systemImage: "chart.line.uptrend.xyaxis") }
                 .tag(1)
             
-            // Tab 3: Donations (My Requests + Charities + Convert Credits)
-            DonationsPage()
+            ReelsTabView()
                 .environmentObject(authService)
-                .tabItem { Label("Donate", systemImage: "heart.fill") }
+                .environmentObject(themeManager)
+                .tabItem { Label("Reels", systemImage: "play.rectangle.fill") }
                 .tag(2)
             
-            // Tab 4: Dua Wall
-            DuaWallView()
-                .tabItem { Label("Duas", systemImage: "hands.sparkles.fill") }
+            DonationsPage()
+                .environmentObject(authService)
+                .environmentObject(themeManager)
+                .tabItem { Label("Donate", systemImage: "heart.fill") }
                 .tag(3)
             
-            // Tab 5: Profile
-            ProfileView()
-                .tabItem { Label("Profile", systemImage: "person.fill") }
+            DuaWallView()
+                .environmentObject(authService)
+                .environmentObject(themeManager)
+                .tabItem { Label("Dua", systemImage: "hands.sparkles.fill") }
                 .tag(4)
-            
-            // Tab 6: Admin (only when custom claim admin == true)
-            if showAdminTab {
-                AdminTabView()
-                    .environmentObject(authService)
-                    .tag(5)
-            }
         }
         .accentColor(.accentColor)
-        .onChange(of: authService.isAdmin) {
-            if !authService.isAdmin && selectedTab == 5 { selectedTab = 0 }
+        .onAppear {
+            Task { await calendarConfig.fetchIfNeeded() }
+            restoreOrClampSelectedTab()
+        }
+        .onChange(of: selectedTab) { _, newValue in
+            UserDefaults.standard.set(newValue, forKey: selectedTabKey)
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                Task { await calendarConfig.refresh() }
+            }
+        }
+    }
+    
+    private func restoreOrClampSelectedTab() {
+        if selectedTab < 0 || selectedTab >= tabCount {
+            selectedTab = min(tabCount - 1, max(0, selectedTab))
         }
     }
 }
 
-// MARK: - Preview
-
 #Preview {
     RootTabView()
+        .environmentObject(AuthService.shared)
+        .environmentObject(ThemeManager.shared)
 }

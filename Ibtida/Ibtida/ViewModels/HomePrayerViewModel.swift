@@ -4,6 +4,7 @@
 //
 //  ViewModel for Home (Salah Tracker) page
 //  Handles prayer status updates and Firestore persistence
+//  BEHAVIOR LOCK: loadTodayPrayers guard/cache; credit/streak writes unchanged. See Core/BEHAVIOR_LOCK.md
 //
 
 import Foundation
@@ -24,6 +25,8 @@ class HomePrayerViewModel: ObservableObject {
     @Published var currentStreak: Int = 0
     @Published var userName: String = "Friend"
     @Published var prayerLogs: [PrayerLog] = []  // For 5-week progress view
+    /// Today's daily log (fasting answer, Hijri). Loaded with today's prayers for once-per-day fasting prompt.
+    @Published var todayDailyLog: DailyLog?
     
     // User profile data for credit calculations
     @Published var userGender: UserGender?
@@ -33,6 +36,7 @@ class HomePrayerViewModel: ObservableObject {
     
     private let db = Firestore.firestore()
     private let prayerService = PrayerLogFirestoreService.shared
+    private let dailyLogService = DailyLogFirestoreService.shared
     private var hasLoadedToday = false
     private var hasLoadedWeeks = false
     private var loadTask: Task<Void, Never>?
@@ -160,6 +164,7 @@ class HomePrayerViewModel: ObservableObject {
             )
             
             await loadLast5Weeks(uid: uid)
+            await loadTodayDailyLog(uid: uid)
             isLoading = false
             return
         }
@@ -291,12 +296,34 @@ class HomePrayerViewModel: ObservableObject {
         // Load last 5 weeks for progress view
         await loadLast5Weeks(uid: uid)
         
+        // Load today's daily log (fasting prompt: once per day)
+        await loadTodayDailyLog(uid: uid)
+        
         hasLoadedToday = true
+    }
+    
+    /// Load today's daily log for fasting prompt (has user already answered?)
+    private func loadTodayDailyLog(uid: String) async {
+        let dateString = DateUtils.dayId()
+        do {
+            let log = try await dailyLogService.loadDailyLog(dateString: dateString)
+            self.todayDailyLog = log
+        } catch {
+            self.todayDailyLog = nil
+            #if DEBUG
+            print("⚠️ HomePrayerViewModel: Could not load daily log - \(error)")
+            #endif
+        }
+    }
+    
+    /// Update today's daily log in memory after user answers fasting prompt (so we don't show again)
+    func setTodayDailyLog(_ log: DailyLog) {
+        todayDailyLog = log
     }
     
     // MARK: - Update Prayer Status
     
-    func updatePrayerStatus(prayer: PrayerType, status: PrayerStatus) async {
+    func updatePrayerStatus(prayer: PrayerType, status: PrayerStatus, sunnahPrayed: Bool? = nil, witrPrayed: Bool? = nil) async {
         guard let uid = currentUID else {
             errorMessage = "Please sign in to track prayers"
             HapticFeedback.error()
@@ -358,10 +385,30 @@ class HomePrayerViewModel: ObservableObject {
                 asrStatus: todayPrayers.asrStatus,
                 maghribStatus: todayPrayers.maghribStatus,
                 ishaStatus: todayPrayers.ishaStatus,
+                jumuahStatus: todayPrayers.jumuahStatus,
+                sisterJumuahStatus: todayPrayers.sisterJumuahStatus,
+                fajrSunnahPrayed: todayPrayers.fajrSunnahPrayed,
+                dhuhrSunnahPrayed: todayPrayers.dhuhrSunnahPrayed,
+                asrSunnahPrayed: todayPrayers.asrSunnahPrayed,
+                maghribSunnahPrayed: todayPrayers.maghribSunnahPrayed,
+                ishaSunnahPrayed: todayPrayers.ishaSunnahPrayed,
+                jumuahSunnahPrayed: todayPrayers.jumuahSunnahPrayed,
+                ishaWitrPrayed: todayPrayers.ishaWitrPrayed,
                 isMenstrualDay: todayPrayers.isMenstrualDay
             )
         }
         newPrayerDay.setStatus(status, for: prayer)
+        // Sunnah prayed: only for performed statuses; otherwise store false
+        if PrayerStatus.performedStatuses.contains(status) {
+            newPrayerDay.setSunnahPrayed(sunnahPrayed ?? false, for: prayer)
+            // Witr (Isha only): only when Isha was performed
+            if prayer == .isha {
+                newPrayerDay.setWitrPrayed(witrPrayed ?? false, for: .isha)
+            }
+        } else {
+            newPrayerDay.setSunnahPrayed(false, for: prayer)
+            if prayer == .isha { newPrayerDay.setWitrPrayed(false, for: .isha) }
+        }
         // Streak-safe: day is menstrual if profile toggle is on OR any prayer is "Not applicable 🩸"
         newPrayerDay.isMenstrualDay = isMenstrualDay || newPrayerDay.allStatuses.contains(.menstrual)
         
@@ -421,6 +468,21 @@ class HomePrayerViewModel: ObservableObject {
         }
         
         isSaving = false
+    }
+    
+    /// Update sister Jumu'ah status (Friday only, sisters only). No credit change; informational only.
+    func updateSisterJumuahStatus(_ status: SisterJumuahStatus) async {
+        guard let uid = currentUID else { return }
+        let dayId = DateUtils.dayId()
+        todayPrayers.sisterJumuahStatus = status
+        PerformanceCache.shared.setTodayPrayerDay(dayId: dayId, prayerDay: todayPrayers)
+        do {
+            try await PrayerDayFirestoreService.shared.saveSisterJumuahStatus(uid: uid, dayId: dayId, status: status)
+        } catch {
+            #if DEBUG
+            print("⚠️ HomePrayerViewModel: Failed to save sister Jumu'ah status - \(error)")
+            #endif
+        }
     }
     
     /// Save / update a per-prayer log used by the 5-week progress grid.
@@ -489,13 +551,22 @@ class HomePrayerViewModel: ObservableObject {
         // Use timezone-aware dayId consistently - SINGLE SOURCE OF TRUTH
         // dayId is the document ID and also stored as field for querying
         let prayerDayData: [String: Any] = [
-            "dayId": dayId, // Primary date identifier (timezone-aware, yyyy-MM-dd format)
-            "date": Timestamp(date: prayerDay.date), // Firestore Timestamp for querying by date range
+            "dayId": dayId,
+            "date": Timestamp(date: prayerDay.date),
             "fajrStatus": prayerDay.fajrStatus.rawValue,
             "dhuhrStatus": prayerDay.dhuhrStatus.rawValue,
             "asrStatus": prayerDay.asrStatus.rawValue,
             "maghribStatus": prayerDay.maghribStatus.rawValue,
             "ishaStatus": prayerDay.ishaStatus.rawValue,
+            "jumuahStatus": prayerDay.jumuahStatus.rawValue,
+            "sisterJumuahStatus": prayerDay.sisterJumuahStatus?.rawValue ?? NSNull(),
+            "fajrSunnahPrayed": prayerDay.fajrSunnahPrayed,
+            "dhuhrSunnahPrayed": prayerDay.dhuhrSunnahPrayed,
+            "asrSunnahPrayed": prayerDay.asrSunnahPrayed,
+            "maghribSunnahPrayed": prayerDay.maghribSunnahPrayed,
+            "ishaSunnahPrayed": prayerDay.ishaSunnahPrayed,
+            "jumuahSunnahPrayed": prayerDay.jumuahSunnahPrayed,
+            "ishaWitrPrayed": prayerDay.ishaWitrPrayed,
             "totalCreditsForDay": prayerDay.totalCreditsForDay,
             "isMenstrualDay": prayerDay.isMenstrualDay,
             "lastUpdatedAt": FieldValue.serverTimestamp()
@@ -557,11 +628,23 @@ class HomePrayerViewModel: ObservableObject {
         if let isha = data["ishaStatus"] as? String {
             prayerDay.ishaStatus = PrayerStatus.fromFirestore(isha)
         }
+        if let jumuah = data["jumuahStatus"] as? String {
+            prayerDay.jumuahStatus = PrayerStatus.fromFirestore(jumuah)
+        }
         
-        // Safely parse optional fields
         prayerDay.isMenstrualDay = data["isMenstrualDay"] as? Bool ?? false
+        prayerDay.fajrSunnahPrayed = data["fajrSunnahPrayed"] as? Bool ?? false
+        prayerDay.dhuhrSunnahPrayed = data["dhuhrSunnahPrayed"] as? Bool ?? false
+        prayerDay.asrSunnahPrayed = data["asrSunnahPrayed"] as? Bool ?? false
+        prayerDay.maghribSunnahPrayed = data["maghribSunnahPrayed"] as? Bool ?? false
+        prayerDay.ishaSunnahPrayed = data["ishaSunnahPrayed"] as? Bool ?? false
+        prayerDay.jumuahSunnahPrayed = data["jumuahSunnahPrayed"] as? Bool ?? false
+        prayerDay.ishaWitrPrayed = data["ishaWitrPrayed"] as? Bool ?? false
+        if let raw = data["sisterJumuahStatus"] as? String {
+            prayerDay.sisterJumuahStatus = SisterJumuahStatus.fromFirestore(raw)
+        }
         
-        // Safely parse credits (defensive)
+        // Recalculate credits (includes sunnah bonus)
         // Recalculate credits with bonuses (will use defaults if profile not loaded yet)
         let accountAgeDays = accountAgeInDays()
         prayerDay.recalculateCredits(

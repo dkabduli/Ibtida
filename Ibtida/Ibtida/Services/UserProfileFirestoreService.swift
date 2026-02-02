@@ -14,6 +14,9 @@ class UserProfileFirestoreService {
     static let shared = UserProfileFirestoreService()
     
     private let db = Firestore.firestore()
+    /// In-memory cache: uid -> (profile, fetchedAt). TTL 60s to reduce over-fetch when switching tabs. Cleared on sign-out.
+    private var profileCache: [String: (profile: UserProfile, fetchedAt: Date)] = [:]
+    private let cacheTTL: TimeInterval = 60
     
     private init() {}
     
@@ -24,10 +27,25 @@ class UserProfileFirestoreService {
         return uid
     }
     
+    /// Clear profile cache (call on sign-out so next user does not get stale data).
+    func clearProfileCache() {
+        profileCache.removeAll()
+        #if DEBUG
+        print("📖 UserProfileFirestoreService: Profile cache cleared")
+        #endif
+    }
+    
     // MARK: - Load User Profile
     
     func loadUserProfile(uid: String) async throws -> UserProfile? {
-        let userDoc = try await db.collection("users").document(uid).getDocument()
+        if let cached = profileCache[uid], Date().timeIntervalSince(cached.fetchedAt) < cacheTTL {
+            #if DEBUG
+            print("📖 UserProfileFirestoreService: Using cached profile for uid=\(uid.prefix(8))…")
+            #endif
+            return cached.profile
+        }
+        
+        let userDoc = try await db.collection(FirestorePaths.users).document(uid).getDocument()
         
         guard userDoc.exists, let data = userDoc.data() else {
             return nil
@@ -65,6 +83,7 @@ class UserProfileFirestoreService {
             menstrualModeUpdatedAt: menstrualModeUpdatedAt
         )
         
+        profileCache[uid] = (profile, Date())
         #if DEBUG
         print("📖 Loaded user profile from Firestore - UID: \(uid), totalCredits: \(totalCredits), streak: \(currentStreak), gender: \(gender?.rawValue ?? "nil"), onboarding: \(onboardingCompleted)")
         #endif
@@ -107,7 +126,7 @@ class UserProfileFirestoreService {
         data["menstrualModeUpdatedAt"] = Timestamp(date: profile.menstrualModeUpdatedAt ?? Date())
         
         // Use merge to preserve createdAt if it exists
-        try await db.collection("users").document(uid).setData(data, merge: true)
+        try await db.collection(FirestorePaths.users).document(uid).setData(data, merge: true)
         
         #if DEBUG
         print("💾 Saved user profile to Firestore - UID: \(uid)")
@@ -123,7 +142,7 @@ class UserProfileFirestoreService {
             "lastUpdatedAt": Timestamp(date: Date())
         ]
         
-        try await db.collection("users").document(uid).setData(data, merge: true)
+        try await db.collection(FirestorePaths.users).document(uid).setData(data, merge: true)
         
         #if DEBUG
         print("✅ Updated gender and onboarding - UID: \(uid), gender: \(gender.rawValue)")
@@ -143,7 +162,7 @@ class UserProfileFirestoreService {
             data["menstrualModeStartAt"] = Timestamp(date: Date())
         }
         
-        try await db.collection("users").document(uid).setData(data, merge: true)
+        try await db.collection(FirestorePaths.users).document(uid).setData(data, merge: true)
         
         #if DEBUG
         print("✅ Updated menstrual mode - UID: \(uid), enabled: \(enabled)")
@@ -165,7 +184,7 @@ class UserProfileFirestoreService {
             "lastUpdatedAt": Timestamp(date: Date())
         ]
         
-        try await db.collection("users").document(uid).setData(data, merge: true)
+        try await db.collection(FirestorePaths.users).document(uid).setData(data, merge: true)
         
         #if DEBUG
         print("✅ Created user profile in Firestore - UID: \(uid), name: \(name)")

@@ -41,7 +41,7 @@ class CreditConversionService {
             status: .pending
         )
         
-        let requestRef = db.collection("credit_conversion_requests").document(request.id)
+        let requestRef = db.collection(FirestorePaths.creditConversionRequests).document(request.id)
         
         let data: [String: Any] = [
             "id": request.id,
@@ -71,7 +71,7 @@ class CreditConversionService {
     // MARK: - Load User's Conversion Requests
     
     func loadUserConversionRequests(userId: String) async throws -> [CreditConversionRequest] {
-        let snapshot = try await db.collection("credit_conversion_requests")
+        let snapshot = try await db.collection(FirestorePaths.creditConversionRequests)
             .whereField("userId", isEqualTo: userId)
             .order(by: "createdAt", descending: true)
             .getDocuments()

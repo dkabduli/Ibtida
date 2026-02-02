@@ -230,7 +230,7 @@ class JourneyProgressViewModel: ObservableObject {
         #endif
         
         do {
-            let doc = try await db.collection("users")
+            let doc = try await db.collection(FirestorePaths.users)
                 .document(uid)
                 .collection("journey")
                 .document("weekProgress")
@@ -305,7 +305,7 @@ class JourneyProgressViewModel: ObservableObject {
         print("💾 JourneyProgressViewModel: Saving week progress - UID: \(uid), Week: \(weekId)")
         #endif
         
-        try await db.collection("users")
+        try await db.collection(FirestorePaths.users)
             .document(uid)
             .collection("journey")
             .document("weekProgress")
@@ -333,7 +333,7 @@ class JourneyProgressViewModel: ObservableObject {
         #endif
         
         do {
-            let doc = try await db.collection("users")
+            let doc = try await db.collection(FirestorePaths.users)
                 .document(uid)
                 .collection("journey")
                 .document("monthProgress")
@@ -426,7 +426,7 @@ class JourneyProgressViewModel: ObservableObject {
                 "updatedAt": FieldValue.serverTimestamp()
             ]
             
-            try await db.collection("users")
+            try await db.collection(FirestorePaths.users)
                 .document(uid)
                 .collection("journey")
                 .document("monthProgress")

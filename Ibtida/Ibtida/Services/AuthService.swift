@@ -150,7 +150,7 @@ class AuthService: ObservableObject {
     private func ensureUserProfileExists(firebaseUser: FirebaseAuth.User) async throws {
         let uid = firebaseUser.uid
         let db = Firestore.firestore()
-        let userDoc = db.collection("users").document(uid)
+        let userDoc = db.collection(FirestorePaths.users).document(uid)
         
         #if DEBUG
         print("📖 AuthService: Checking user profile exists - UID: \(uid)")
@@ -219,7 +219,7 @@ class AuthService: ObservableObject {
             
             // Create Firestore profile with name and gender
             let db = Firestore.firestore()
-            let userDoc = db.collection("users").document(result.user.uid)
+            let userDoc = db.collection(FirestorePaths.users).document(result.user.uid)
             
             let data: [String: Any] = [
                 "name": name,
@@ -351,6 +351,8 @@ class AuthService: ObservableObject {
             
             // Clear performance cache
             PerformanceCache.shared.clearAll()
+            // Clear profile cache so next user does not get stale data
+            UserProfileFirestoreService.shared.clearProfileCache()
             
             // Sign out from Firebase
             try Auth.auth().signOut()

@@ -35,7 +35,7 @@ struct DuaWallView: View {
                     allTags: viewModel.allTags
                 )
             }
-            .onAppear { handleOnAppear() }
+            .onAppear { handleOnAppear() } // BEHAVIOR LOCK: loadDuas/loadDailyDua; daily dismissal state. See Core/BEHAVIOR_LOCK.md
             .refreshable { await refreshData() }
             .onChange(of: Calendar.current.component(.day, from: Date())) { _, _ in
                 // Detect date change (midnight reset)
@@ -220,8 +220,11 @@ struct DuaWallView: View {
         }
         
         ToolbarItem(placement: .navigationBarTrailing) {
-            Button(action: { showSubmitDua = true }) {
-                Image(systemName: "plus")
+            HStack(spacing: 16) {
+                ProfileToolbarButton()
+                Button(action: { showSubmitDua = true }) {
+                    Image(systemName: "plus")
+                }
             }
         }
     }

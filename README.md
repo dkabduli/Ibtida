@@ -22,13 +22,16 @@ By combining prayer tracking with a credit-based system and real card donations,
 - **Auth** — Email/password (Firebase Auth); optional Google Sign-In
 - **Onboarding** — Gender selection (brother/sister) once at sign-up; no redundant popup; gender drives prayer options and credit rules
 - **Prayer tracking** — Log 5 daily prayers with **gender-specific status options**:
-  - **Brothers:** In masjid (jamat), On time, Qada, Missed, Not logged
+  - **Brothers:** In masjid (jamat), On time, Qada, Missed, Not logged; **Jumu’ah** replaces Dhuhr on Friday (distinct status options)
   - **Sisters:** At home (on time), Qada, Missed, Not applicable 🩸 (streak-safe)
-  - Status stored as enum raw value in Firestore; legacy values migrated on read (`PrayerStatus.fromFirestore`)
+  - Sunnah and Witr (Isha) logged where applicable; status stored as enum raw value in Firestore; legacy values migrated on read (`PrayerStatus.fromFirestore`)
+- **Fasting & Hijri** — Optional fasting prompt (Monday/Thursday, White Days); Hijri date display (Civil or Umm al-Qura); daily log and bonus credits via `CreditRules`
 - **Last 5 weeks** — Horizontal progress grid: **current week first (left)**, older weeks to the right; “This Week” highlighted
 - **Prayer status sheet** — Full-height bottom sheet; first tap opens correctly (no blank screen); **Duas** tab: Ameen and Done buttons spaced (no overlap)
 - **Streaks & credits** — Credits per prayer status (see table below); streak calculator; menstrual / “Not applicable 🩸” does not break streak
-- **Journey** — Single “Journey” title (nav bar); proportions and padding (e.g. 16); milestones by total credits; week progress (5 squares); day detail sheet with gender-aware labels
+- **Journey** — Single “Journey” title (nav bar); proportions and padding; milestones by total credits; week progress (5 squares); day detail sheet with gender-aware labels
+- **Ramadan tab** (optional) — Shown when server enables via `app_config/calendar_flags` and date range is set; per-day fasting log (brothers: Yes/No; sisters: Yes / No / Not applicable 🩸). See `firebase/RAMADAN_CONFIG.md`
+- **Reels tab** — Vertical full-screen Quran recitation videos; feed from Firestore (`reels` where `isActive` and `tags` contains `"quran"`); like/save/share; mute; user interactions in `users/{uid}/reelInteractions`. See `firebase/REELS_MIGRATION.md`
 - **Donate tab** — Overview, **My Requests** (user’s own requests only: `users/{uid}/requests`), **Charities** (by category), **Convert Credits**; card donations via **Stripe PaymentSheet** (CAD only). No global community request feed for regular users.
 - **Card donations** — Per-charity intake → **createPaymentIntent** (CAD) → Stripe **PaymentSheet** → **finalizeDonation** → receipt in `users/{uid}/donations`. If finalizeDonation fails after retries, user sees **pending receipt** state (no misleading “Thank You” until receipt is persisted).
 - **Donation receipts** — Server-only writes (webhook + finalizeDonation); list and detail in **Profile → Donations**; all amounts and storage in **CAD**
@@ -100,17 +103,19 @@ Credits are earned by logging prayer status and are used for motivation and conv
 
 ## Navigation
 
-- **Regular users (5 tabs):** Home, Journey, Donate, Duas, Profile.
-- **Admin users (6 tabs):** Same five plus **Admin** (Dashboard → All Requests, Credit Conversion, Moderation). Admin tab is shown only when `authService.isAdmin` (from ID token custom claim).
+- **Regular users:** Home, Journey, [Ramadan if enabled], Reels, Donate, Duas, Profile.
+- **Admin users:** Same tabs plus **Admin** when `authService.isAdmin` (Firebase Auth custom claim).
 
 Tab contents:
 
-1. **Home** — Today’s prayers (5 circles), Last 5 Weeks grid (current week left), progress summary.
-2. **Journey** — Milestones, week progress (5 squares), credit summary; single nav title “Journey”.
-3. **Donate** — Overview, **My Requests**, Charities (by category), Convert Credits; card donation via Stripe (CAD).
-4. **Duas** — Community dua wall; submit and view duas; Dua of the Day with Ameen/Done layout fixed.
-5. **Profile** — User info, credits, streak; **Donations** history; theme; settings; About; Diagnostics (dev).
-6. **Admin** (if `isAdmin`) — Dashboard, All Requests, Credit Conversion, Moderation.
+1. **Home** — Today’s prayers (5 circles; Jumu’ah replaces Dhuhr for brothers on Friday), Last 5 Weeks grid (current week left), progress summary; fasting prompt and Sunnah/Witr where applicable.
+2. **Journey** — Milestones, week progress (5 squares), credit summary; single nav title “Journey”; day detail sheet.
+3. **Ramadan** (optional) — Visible when server config enables it and date range is set; daily fasting log (brothers/sisters; sisters: Yes / No / Not applicable 🩸).
+4. **Reels** — Vertical full-screen Quran recitation short videos (data-driven via Firestore); like, save, share; mute toggle; only reels with tag `"quran"` are shown.
+5. **Donate** — Overview, **My Requests**, Charities (by category), Convert Credits; card donation via Stripe (CAD).
+6. **Duas** — Community dua wall; submit and view duas; Dua of the Day with Ameen/Done.
+7. **Profile** — User info, credits, streak; **Donations** history; theme; settings; About; Diagnostics (dev).
+8. **Admin** (if `isAdmin`) — Dashboard, All Requests, Credit Conversion, Moderation.
 
 ---
 
@@ -119,14 +124,16 @@ Tab contents:
 - **iOS** — SwiftUI, iOS 17+
 - **Backend** — Firebase (Auth, Firestore, Cloud Functions)
 - **Payments** — Stripe (PaymentSheet); **CAD** only; test mode via `pk_test_` / Stripe test cards
-- **Key paths** — `users/{uid}`, `users/{uid}/donations`, `users/{uid}/requests`, `users/{uid}/prayerDays`, `users/{uid}/prayers`; `organizationIntakes`, `payments`; global `duas`, `daily_duas`, `charities`; **admin-only:** `admin/*`, global `requests`, `reports`, `credit_conversion_requests` (user sees own docs only; admin sees all).
+- **Key paths** — All Firestore paths are centralized in `Core/FirestorePaths.swift`. Main ones: `users/{uid}`, `users/{uid}/donations`, `users/{uid}/requests`, `users/{uid}/prayerDays`, `users/{uid}/prayers`, `users/{uid}/reelInteractions`, `users/{uid}/ramadanLogs`, `users/{uid}/dailyLogs`; `organizationIntakes`, `payments`; global `duas`, `daily_duas`, `charities`, `reels`; `app_config` (e.g. calendar_flags); **admin-only:** `admin/*`, global `requests`, `reports`, `credit_conversion_requests`.
 
 ---
 
 ## Firestore Rules (Summary)
 
-- **Users** — Read/write only own `users/{userId}` and subcollections (`donations`, `requests`, `prayers`, `prayerDays`).
+- **Users** — Read/write only own `users/{userId}` and subcollections (`donations`, `requests`, `prayers`, `prayerDays`, `dailyLogs`, `ramadanLogs`, `reelInteractions`).
 - **Donations** — Read-only for user on `users/{uid}/donations`; writes only by backend.
+- **Reels** — Read where `isActive == true`; no client write. **reelInteractions** — user read/write only own `users/{uid}/reelInteractions/{reelId}`.
+- **app_config** — Read for authenticated users; write only by admin (e.g. Ramadan calendar flags).
 - **Global requests** — Read/write only if `request.auth.token.admin == true`.
 - **Reports** — Any authenticated user can create; only admin can read/delete.
 - **credit_conversion_requests** — User can create/read/update/delete only docs where `userId == request.auth.uid`; admin can read all.
@@ -162,54 +169,76 @@ Full rules in `firebase/firestore.rules`.
 Ibtida/Ibtida/Ibtida/          # iOS app (Xcode: Ibtida/Ibtida.xcodeproj)
 ├── IbtidaApp.swift
 ├── Core/
+│   ├── FirestorePaths.swift  (single source for all collection/document paths)
+│   ├── BEHAVIOR_LOCK.md      (behaviors that must not change; in-code checklist refs)
+│   ├── LoadState.swift       (shared loading state for list screens)
 │   ├── StripeConfig.swift, DateUtils.swift, DonationAmountParser.swift
 │   ├── DesignSystem.swift, SemanticDesignSystem.swift, AppTheme.swift
-│   ├── CreditRules.swift, PrayerStatusColors.swift
-│   ├── ThemeManager.swift, FirestorePaths.swift (includes admin paths)
-│   ├── GentleLanguage.swift, TimeAwareUI.swift, LogLevel.swift
+│   ├── CreditRules.swift, PrayerStatusColors.swift, HijriCalendar.swift
+│   ├── ThemeManager.swift, GentleLanguage.swift, TimeAwareUI.swift, LogLevel.swift
 │   └── NetworkErrorHandler.swift, PerformanceCache.swift, AppStrings.swift
 ├── Models/
 │   ├── Charity.swift, Donation.swift, DonationError.swift, DonationType.swift
-│   ├── CreditConversionRequest.swift
+│   ├── CreditConversionRequest.swift, DailyLog.swift, RamadanConfig.swift, RamadanLog.swift
 │   ├── Prayer.swift (PrayerStatus.fromFirestore, gender-specific lists)
 │   ├── PrayerModels.swift, UserProfile.swift, RequestModel.swift
-│   └── Dua.swift, DuaRequest.swift
+│   ├── Dua.swift, DuaRequest.swift, ReelModel.swift
+│   └── ...
 ├── Services/
 │   ├── AuthService.swift (isAdmin, refreshAdminClaim)
+│   ├── FirestoreService.swift, UserProfileFirestoreService.swift (profile cache 60s, clear on sign-out)
+│   ├── UserRequestsFirestoreService.swift (user requests: load/create)
+│   ├── PrayerLogFirestoreService.swift, PrayerDayFirestoreService.swift, DailyLogFirestoreService.swift
+│   ├── StreakCalculator.swift, CalendarConfigManager.swift, RamadanLogFirestoreService.swift
+│   ├── ReelService.swift, ReelInteractionService.swift, PlayerManager.swift
 │   ├── FirebaseFunctionsService.swift, UserDonationsFirestoreService.swift
-│   ├── FirestoreService.swift, UserProfileFirestoreService.swift
-│   ├── PrayerLogFirestoreService.swift, StreakCalculator.swift
 │   ├── OrganizationIntakeService.swift, CharityService.swift, DonationService.swift
 │   ├── CreditConversionService.swift, DuaFirestoreService.swift
 │   └── LocalStorageService.swift, UIStateFirestoreService.swift
 ├── ViewModels/
-│   ├── PaymentFlowCoordinator.swift, HomeViewModel.swift, HomePrayerViewModel.swift
-│   ├── JourneyProgressViewModel.swift, JourneyMilestoneViewModel.swift
-│   ├── DonationViewModel.swift, CreditConversionViewModel.swift
+│   ├── HomeViewModel.swift, HomePrayerViewModel.swift
+│   ├── JourneyViewModel.swift, JourneyProgressViewModel.swift, JourneyMilestoneViewModel.swift
+│   ├── RamadanViewModel.swift, ReelsFeedViewModel.swift
+│   ├── DonationViewModel.swift, CreditConversionViewModel.swift, PaymentFlowCoordinator.swift
 │   ├── CategoryCharitiesViewModel.swift, CommunityRequestsViewModel.swift (admin-only use)
 │   └── DuaViewModel.swift
 ├── Views/
 │   ├── Home/       (HomeView, HomePrayerView — prayer grid, status sheets)
 │   ├── Journey/    (JourneyView, JourneyHomeView, JourneyMilestoneView)
+│   ├── Ramadan/    (RamadanTabView, RamadanDaySheet — optional tab)
+│   ├── Reels/      (ReelsTabView, VideoPlayerView — Quran recitation feed)
 │   ├── Donate/     (DonationsPage [My Requests], OrganizationIntakeView, CategoryCharitiesView, CreditConversionView)
 │   ├── Dua/        (DuaWallView)
 │   ├── Profile/    (ProfileView, DonationsHistoryView)
-│   ├── Requests/   (RequestsView — user’s own requests)
+│   ├── Requests/   (RequestsView — user’s own requests; LoadState + UserRequestsFirestoreService)
 │   ├── Admin/      (AdminTabView, AdminDashboardView, AdminRequestsView, AdminCreditConversionView, AdminModerationToolsView)
 │   ├── Auth/       (LoginView)
 │   ├── Onboarding/ (GenderOnboardingView)
 │   ├── Settings/   (SettingsView, AppSettingsView, DiagnosticsView)
 │   ├── Components/ (DuaComponents, EmptyStates, ErrorHandling, NetworkStatusBanner)
-│   └── RootTabView.swift (conditional Admin tab when isAdmin)
+│   └── RootTabView.swift (tab order; conditional Ramadan & Reels & Admin; persist selected tab)
+├── REFACTOR_PLAN.md, QUALITY_GATE_CHECKLIST.md, REELS_CHECKLIST.md
 └── Resources/      charities.json; Assets.xcassets
 
 firebase/
-├── firestore.rules           (user-only + admin-only rules)
+├── firestore.rules           (user-only + admin-only + reels read; reelInteractions per user)
+├── RAMADAN_CONFIG.md         (how to enable Ramadan tab via app_config/calendar_flags)
+├── REELS_MIGRATION.md        (how to add reels documents; composite index)
 ├── scripts/
 │   └── set-admin-claims.js   (set admin custom claim by email; run locally)
 └── functions/
     └── index.js              createPaymentIntent (CAD), finalizeDonation, stripeWebhook, health, setAdminRole (callable)
 ```
+
+---
+
+## Code quality & refinement
+
+- **Firestore paths** — All collection/document strings live in `Core/FirestorePaths.swift`; use these constants instead of literals.
+- **Behavior lock** — `Core/BEHAVIOR_LOCK.md` and in-code comments define behaviors that must stay identical across refactors (navigation, sheets, credits, dates, privacy). Check before changing flows or data.
+- **Loading state** — List screens use `LoadState` (idle, loading, loaded, empty, error) and `LoadState.showLoadingPlaceholder(loadState, isEmpty)` to avoid blank-first-tap and double-fetch.
+- **Services** — Firestore access is centralized in services (e.g. `UserRequestsFirestoreService`, `UserProfileFirestoreService` with optional 60s profile cache). Views/ViewModels orchestrate; services perform reads/writes.
+- **Quality gate** — After changes, run through `Ibtida/QUALITY_GATE_CHECKLIST.md` (build, no behavior change, no clipping, no blank first-tap, no fetch loops).
 
 ---
 
@@ -224,9 +253,14 @@ firebase/
 
 ### Related docs (in repo)
 
+- **`Ibtida/Core/BEHAVIOR_LOCK.md`** — Behaviors that must remain identical; module inventory; in-code checklist references
+- **`Ibtida/REFACTOR_PLAN.md`** — Refinement passes: path centralization, LoadState, services, profile cache; file-by-file rationale
+- **`Ibtida/QUALITY_GATE_CHECKLIST.md`** — Post-refactor verification: build, no behavior change, no clipping, no blank first-tap, no fetch loops
+- **`Ibtida/REELS_CHECKLIST.md`** — Reels tab QA: iPhone SE, single player, no audio overlap, memory
 - **`Ibtida/ADMIN_OVERLAY_TEST_CHECKLIST.md`** — How to set admin, test non-admin vs admin, token refresh, CAD, privacy
 - **`Ibtida/JOURNEY_DEBUG_CHECKLIST.md`** — Production QA checklist, App Icon consistency, Islamic guidelines section
-- **`Ibtida/IMPLEMENTATION_SUMMARY.md`** — Implementation and donation flow details (if present)
+- **`firebase/RAMADAN_CONFIG.md`** — Enable Ramadan tab via `app_config/calendar_flags`
+- **`firebase/REELS_MIGRATION.md`** — Add reels in Firestore; composite index; user interactions
 - **`firebase/functions/README.md`** — Cloud Functions setup
 
 ---

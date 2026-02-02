@@ -85,7 +85,7 @@ class DonationViewModel: ObservableObject {
         }
         
         do {
-            let snapshot = try await db.collection("users").document(uid)
+            let snapshot = try await db.collection(FirestorePaths.users).document(uid)
                 .collection("donations")
                 .order(by: "createdAt", descending: true)
                 .limit(to: 50)
@@ -133,7 +133,7 @@ class DonationViewModel: ObservableObject {
         }
         
         do {
-            let snapshot = try await db.collection("users").document(uid)
+            let snapshot = try await db.collection(FirestorePaths.users).document(uid)
                 .collection("receipts")
                 .order(by: "createdAt", descending: true)
                 .limit(to: 50)

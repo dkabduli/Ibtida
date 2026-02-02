@@ -32,6 +32,8 @@ enum GentleLanguage {
             return "Prayed at home"
         case .menstrual:
             return "Not applicable" // Respectful, neutral
+        case .jummah:
+            return "Jumu'ah (Friday prayer)"
         }
     }
     

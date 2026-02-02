@@ -7,7 +7,8 @@
 
 import Foundation
 
-/// Centralized Firestore paths for consistent data access
+/// Centralized Firestore paths for consistent data access.
+/// BEHAVIOR LOCK: Single source for collection/document strings; do not change names. See BEHAVIOR_LOCK.md
 enum FirestorePaths {
     
     // MARK: - Users Collection
@@ -18,6 +19,19 @@ enum FirestorePaths {
     /// User document path
     static func userDocument(uid: String) -> String {
         "\(users)/\(uid)"
+    }
+    
+    // MARK: - Daily Logs (per-user per-day: fasting, Hijri; once per day)
+    
+    /// Daily logs subcollection: users/{uid}/dailyLogs/{yyyy-MM-dd}
+    static let dailyLogs = "dailyLogs"
+    
+    static func dailyLogDocument(uid: String, dateString: String) -> String {
+        "\(users)/\(uid)/\(dailyLogs)/\(dateString)"
+    }
+    
+    static func dailyLogsCollection(uid: String) -> String {
+        "\(users)/\(uid)/\(dailyLogs)"
     }
     
     // MARK: - Prayer Days (per-user per-day prayer tracking)
@@ -35,6 +49,21 @@ enum FirestorePaths {
     static func prayerDaysCollection(uid: String) -> String {
         "\(users)/\(uid)/\(prayerDays)"
     }
+    
+    /// Legacy prayers subcollection under user (prayer logs by id)
+    static let prayers = "prayers"
+    
+    /// User UI state subcollection (e.g. dailyDua dismissal)
+    static let uiState = "uiState"
+    
+    /// User credit conversions subcollection
+    static let creditConversions = "credit_conversions"
+    
+    /// User donation intents subcollection
+    static let donationIntents = "donation_intents"
+    
+    /// User receipts subcollection
+    static let receipts = "receipts"
     
     // MARK: - Duas (Global Community)
     
@@ -100,6 +129,9 @@ enum FirestorePaths {
         "\(admin)/\(adminSettings)/\(adminCreditConversion)"
     }
     
+    /// Credit conversion requests collection (user: own docs; admin: read all). Name must match Firestore rules.
+    static let creditConversionRequests = "credit_conversion_requests"
+    
     // MARK: - Reports (Moderation; create by any auth user; read by admin only)
     
     /// Global reports collection
@@ -142,6 +174,44 @@ enum FirestorePaths {
     
     static func paymentDocument(paymentIntentId: String) -> String {
         "\(payments)/\(paymentIntentId)"
+    }
+    
+    // MARK: - App Config (server-driven flags, e.g. Ramadan)
+    
+    /// App config collection (e.g. calendar_flags for Ramadan)
+    static let appConfig = "app_config"
+    /// Calendar flags document: ramadan_enabled, ramadan_start_gregorian, ramadan_end_gregorian
+    static let calendarFlags = "calendar_flags"
+    static func calendarFlagsDocument() -> String {
+        "\(appConfig)/\(calendarFlags)"
+    }
+    
+    // MARK: - Ramadan Logs (per-user per-day fasting)
+    
+    /// Ramadan logs subcollection: users/{uid}/ramadanLogs/{YYYY-MM-DD}
+    static let ramadanLogs = "ramadanLogs"
+    static func ramadanLogDocument(uid: String, dateString: String) -> String {
+        "\(users)/\(uid)/\(ramadanLogs)/\(dateString)"
+    }
+    static func ramadanLogsCollection(uid: String) -> String {
+        "\(users)/\(uid)/\(ramadanLogs)"
+    }
+    
+    // MARK: - Reels (global feed; data-driven)
+    
+    /// Global reels collection. Documents: title, reciterName, surahName, tags, videoType, videoURL, thumbnailURL, durationSeconds, isActive, createdAt, sortRank
+    static let reels = "reels"
+    static func reelDocument(reelId: String) -> String {
+        "\(reels)/\(reelId)"
+    }
+    
+    /// User reel interactions: users/{uid}/reelInteractions/{reelId} — liked, saved, lastWatchedSeconds, updatedAt
+    static let reelInteractions = "reelInteractions"
+    static func reelInteractionDocument(uid: String, reelId: String) -> String {
+        "\(users)/\(uid)/\(reelInteractions)/\(reelId)"
+    }
+    static func reelInteractionsCollection(uid: String) -> String {
+        "\(users)/\(uid)/\(reelInteractions)"
     }
     
     // MARK: - Helper Functions

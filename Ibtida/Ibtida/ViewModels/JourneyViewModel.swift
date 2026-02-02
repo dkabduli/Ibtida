@@ -3,6 +3,7 @@
 //  Ibtida
 //
 //  ViewModel for Journey progress dashboard. State machine, single fetch, no blank flashes.
+//  BEHAVIOR LOCK: JourneyLoadState; current week first, last 5 weeks. See Core/BEHAVIOR_LOCK.md
 //
 
 import Foundation
@@ -127,9 +128,10 @@ final class JourneyViewModel: ObservableObject {
     // MARK: - Day selection (sheet: set content first, then route)
 
     /// Build detail from in-memory logs, set activeDayDetail, then sheetRoute so sheet is never blank.
-    func selectDay(date: Date) {
+    /// Pass gender so Friday brothers see Jumu'ah (not Dhuhr) in the 5 prayer slots.
+    func selectDay(date: Date, gender: UserGender?) {
         let dayId = DateUtils.dayId(for: date)
-        let detail = Self.buildDayDetail(dayId: dayId, date: date, logs: allLogs)
+        let detail = Self.buildDayDetail(dayId: dayId, date: date, logs: allLogs, gender: gender)
         activeDayDetail = detail
         activeSheetRoute = .dayDetail(date: date)
     }
@@ -183,12 +185,13 @@ final class JourneyViewModel: ObservableObject {
         return result
     }
 
-    private static func buildDayDetail(dayId: String, date: Date, logs: [PrayerLog]) -> JourneyDayDetail {
+    private static func buildDayDetail(dayId: String, date: Date, logs: [PrayerLog], gender: UserGender?) -> JourneyDayDetail {
         let tz = DateUtils.journeyTimezone
         func dayIdFor(_ d: Date) -> String { DateUtils.dayId(for: d, timeZone: tz) }
         let dayLogs = logs.filter { dayIdFor($0.date) == dayId }
         let byPrayer = Dictionary(grouping: dayLogs, by: { $0.prayerType })
-        let items: [JourneyPrayerItem] = PrayerType.allCases.map { prayer in
+        let prayersToShow = PrayerType.prayersToDisplay(for: date, gender: gender)
+        let items: [JourneyPrayerItem] = prayersToShow.map { prayer in
             let log = byPrayer[prayer]?.first
             return JourneyPrayerItem(
                 id: log?.id ?? prayer.rawValue,
