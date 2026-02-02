@@ -16,6 +16,7 @@ private let tabCount = 5
 struct RootTabView: View {
     @EnvironmentObject var authService: AuthService
     @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var networkMonitor: NetworkMonitor
     @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var calendarConfig = CalendarConfigManager.shared
     @State private var selectedTab: Int = (UserDefaults.standard.object(forKey: selectedTabKey) as? Int).flatMap { $0 >= 0 && $0 < tabCount ? $0 : nil } ?? 0
@@ -37,6 +38,7 @@ struct RootTabView: View {
             ReelsTabView()
                 .environmentObject(authService)
                 .environmentObject(themeManager)
+                .environmentObject(networkMonitor)
                 .tabItem { Label("Reels", systemImage: "play.rectangle.fill") }
                 .tag(2)
             

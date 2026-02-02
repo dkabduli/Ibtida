@@ -9,12 +9,14 @@
 import Foundation
 import SwiftUI
 
-/// Reels feed UI state. Never show a blank screen: always show loading, empty, error, or feed.
+/// Reels feed UI state. Never show a blank screen: always show loading, offline, error, empty, or feed.
+/// Empty = query succeeded with 0 documents. Offline/error = fetch failed or no network.
 enum ReelsLoadState: Equatable {
     case idle
     case loading
     case success
     case empty
+    case offline
     case error(String)
 }
 
@@ -45,20 +47,30 @@ final class ReelsFeedViewModel: ObservableObject {
     /// Loading is true when in .loading state (first page)
     var isLoading: Bool { loadState == .loading }
     
-    /// User-facing error message when loadState == .error
+    /// User-facing error message when loadState == .error (not used for .offline)
     var errorMessage: String? {
         if case .error(let msg) = loadState { return msg }
         return nil
     }
     
-    /// Load first page and interactions for current user. Updates loadState; never leaves UI blank.
-    func loadFirstPage() async {
+    /// True when loadState == .offline
+    var isOffline: Bool { loadState == .offline }
+    
+    /// Load first page and interactions. Call with current isOnline so we never treat offline as empty.
+    /// Only .empty when query succeeds with 0 documents. Offline/unavailable → .offline.
+    func loadFirstPage(isOnline: Bool) async {
         guard loadState != .loading else { return }
+        if !isOnline {
+            loadState = .offline
+            #if DEBUG
+            print("🎞️ Reels: skipped fetch (offline)")
+            #endif
+            return
+        }
         loadState = .loading
         #if DEBUG
         print("🎞️ Reels: fetching…")
         #endif
-        defer {}
         
         do {
             let first = try await reelService.fetchFirstPage()
@@ -67,48 +79,52 @@ final class ReelsFeedViewModel: ObservableObject {
             if !ids.isEmpty {
                 inter = (try? await interactionService.loadInteractions(reelIds: ids)) ?? [:]
             }
-            await MainActor.run {
-                reels = first
-                interactions = inter
-                playerManager.setFeedItems(first.map { ($0.id, $0.videoURL) })
-                if !first.isEmpty {
-                    playerManager.setCurrentIndex(0)
-                    playerManager.setMuted(isMuted)
-                    loadState = .success
-                    #if DEBUG
-                    print("🎞️ Reels: fetched \(first.count)")
-                    #endif
-                } else {
-                    loadState = .empty
-                    #if DEBUG
-                    print("🎞️ Reels: empty")
-                    #endif
-                }
+            reels = first
+            interactions = inter
+            playerManager.setFeedItems(first.map { ($0.id, $0.videoURL) })
+            if !first.isEmpty {
+                playerManager.setCurrentIndex(0)
+                playerManager.setMuted(isMuted)
+                loadState = .success
+                #if DEBUG
+                print("🎞️ Reels: fetched \(first.count)")
+                #endif
+            } else {
+                loadState = .empty
+                #if DEBUG
+                print("🎞️ Reels: empty (0 documents)")
+                #endif
             }
         } catch {
-            let errorString = String(describing: error)
-            let isIndexError = errorString.lowercased().contains("index") || errorString.lowercased().contains("composite")
-            let userMessage: String
-            #if DEBUG
-            if isIndexError {
-                userMessage = "Missing Firestore index for reels query. Create it in Firebase console."
-                print("❌ Reels: error (index) – \(error)")
+            let errorString = String(describing: error).lowercased()
+            let isOfflineError = errorString.contains("offline") || errorString.contains("unavailable") || errorString.contains("network") || errorString.contains("no route")
+            if isOfflineError {
+                loadState = .offline
+                #if DEBUG
+                print("❌ Reels: offline – \(error)")
+                #endif
             } else {
+                let isIndexError = errorString.contains("index") || errorString.contains("composite")
+                let userMessage: String
+                #if DEBUG
+                if isIndexError {
+                    userMessage = "Missing Firestore index for reels query. Create it in Firebase console."
+                    print("❌ Reels: error (index) – \(error)")
+                } else {
+                    userMessage = error.localizedDescription
+                    print("❌ Reels: error – \(error)")
+                }
+                #else
                 userMessage = error.localizedDescription
-                print("❌ Reels: error – \(error)")
-            }
-            #else
-            userMessage = error.localizedDescription
-            #endif
-            await MainActor.run {
+                #endif
                 loadState = .error(userMessage)
             }
         }
     }
     
-    /// Retry loading first page (e.g. after error)
-    func retry() {
-        Task { await loadFirstPage() }
+    /// Retry loading first page. Call from view with current isOnline: viewModel.retry(isOnline: networkMonitor.isOnline)
+    func retry(isOnline: Bool) {
+        Task { await loadFirstPage(isOnline: isOnline) }
     }
     
     /// Load next page when user nears end (e.g. last 2 items)

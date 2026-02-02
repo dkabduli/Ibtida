@@ -10,10 +10,15 @@ import SwiftUI
 import AVFoundation
 
 struct ReelsTabView: View {
+    @EnvironmentObject var networkMonitor: NetworkMonitor
     @StateObject private var viewModel = ReelsFeedViewModel()
     @State private var currentIndex: Int = 0
     @State private var showOptionsSheet = false
     @State private var optionsReel: Reel?
+    #if DEBUG
+    @State private var pingMessage: String?
+    @State private var showPingResult = false
+    #endif
     
     var body: some View {
         NavigationStack {
@@ -23,6 +28,8 @@ struct ReelsTabView: View {
                 switch viewModel.loadState {
                 case .idle, .loading:
                     loadingView
+                case .offline:
+                    offlineView
                 case .empty:
                     emptyView
                 case .error:
@@ -37,10 +44,24 @@ struct ReelsTabView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     ProfileToolbarButton()
                 }
+                #if DEBUG
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Ping") {
+                        Task { await runFirestorePing() }
+                    }
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.7))
+                }
+                #endif
             }
             .onAppear {
                 configureAudioSession()
-                Task { await viewModel.loadFirstPage() }
+                Task { await viewModel.loadFirstPage(isOnline: networkMonitor.isOnline) }
+            }
+            .onChange(of: networkMonitor.isOnline) { _, isNowOnline in
+                if isNowOnline {
+                    Task { await viewModel.loadFirstPage(isOnline: true) }
+                }
             }
             .onDisappear {
                 viewModel.playerManager.releaseAll()
@@ -50,8 +71,43 @@ struct ReelsTabView: View {
                     reelOptionsSheet(reel: reel)
                 }
             }
+            #if DEBUG
+            .overlay(pingOverlay)
+            #endif
         }
     }
+    
+    #if DEBUG
+    private var pingOverlay: some View {
+        Group {
+            if let msg = pingMessage, showPingResult {
+                Text(msg)
+                    .font(.caption)
+                    .foregroundColor(.white)
+                    .padding(8)
+                    .background(Capsule().fill(Color.black.opacity(0.7)))
+                    .padding(.top, 8)
+                    .onTapGesture { pingMessage = nil; showPingResult = false }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .allowsHitTesting(true)
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: showPingResult)
+    }
+    
+    private func runFirestorePing() async {
+        let result = await FirestorePingService.ping()
+        await MainActor.run {
+            switch result {
+            case .reachable(exists: let exists):
+                pingMessage = exists ? "Firestore: reachable (doc exists)" : "Firestore: reachable (doc missing)"
+            case .failed(let msg):
+                pingMessage = "Firestore: \(msg)"
+            }
+            showPingResult = true
+        }
+    }
+    #endif
     
     private var loadingView: some View {
         VStack(spacing: AppSpacing.lg) {
@@ -61,6 +117,32 @@ struct ReelsTabView: View {
             Text("Loading reels…")
                 .font(AppTypography.subheadline)
                 .foregroundColor(.white.opacity(0.8))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    
+    private var offlineView: some View {
+        VStack(spacing: AppSpacing.xl) {
+            Image(systemName: "wifi.slash")
+                .font(.system(size: 56))
+                .foregroundColor(.white.opacity(0.7))
+            Text("You're offline")
+                .font(AppTypography.title3)
+                .foregroundColor(.white)
+            Text("Reels need internet. Connect and tap Retry.")
+                .font(AppTypography.subheadline)
+                .foregroundColor(.white.opacity(0.8))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, ContentLayout.horizontalPadding * 2)
+            Button("Retry") {
+                viewModel.retry(isOnline: networkMonitor.isOnline)
+            }
+            .font(AppTypography.bodyBold)
+            .foregroundColor(.black)
+            .padding(.horizontal, AppSpacing.xl)
+            .padding(.vertical, AppSpacing.sm)
+            .background(Color.white, in: Capsule())
+            .padding(.top, AppSpacing.md)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -78,6 +160,14 @@ struct ReelsTabView: View {
                 .foregroundColor(.white.opacity(0.7))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, ContentLayout.horizontalPadding * 2)
+            if networkMonitor.isOnline {
+                Button("Try again") {
+                    viewModel.retry(isOnline: true)
+                }
+                .font(AppTypography.bodyBold)
+                .foregroundColor(.white.opacity(0.9))
+                .padding(.top, AppSpacing.sm)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -87,7 +177,7 @@ struct ReelsTabView: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 48))
                 .foregroundColor(.white.opacity(0.7))
-            Text("Couldn’t load reels")
+            Text("Couldn't load reels")
                 .font(AppTypography.title3)
                 .foregroundColor(.white)
             Text(viewModel.errorMessage ?? "Something went wrong.")
@@ -96,7 +186,7 @@ struct ReelsTabView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, ContentLayout.horizontalPadding * 2)
             Button("Retry") {
-                viewModel.retry()
+                viewModel.retry(isOnline: networkMonitor.isOnline)
             }
             .font(AppTypography.bodyBold)
             .foregroundColor(.black)
@@ -330,4 +420,7 @@ private struct ReelCellView: View {
 
 #Preview {
     ReelsTabView()
+        .environmentObject(AuthService.shared)
+        .environmentObject(ThemeManager.shared)
+        .environmentObject(NetworkMonitor())
 }
