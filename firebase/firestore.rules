@@ -46,10 +46,10 @@ service cloud.firestore {
       }
     }
 
-    // ----- reels (global feed; authenticated read; isActive == true) -----
+    // ----- reels (global feed; authenticated read where isActive; only admins write) -----
     match /reels/{reelId} {
       allow read: if request.auth != null && resource.data.isActive == true;
-      allow write: if false;
+      allow create, update, delete: if isAdmin();
     }
 
     // ----- app_config (calendar flags e.g. Ramadan; read-only for authenticated) -----

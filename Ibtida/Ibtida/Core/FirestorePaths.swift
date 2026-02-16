@@ -152,6 +152,9 @@ enum FirestorePaths {
         "\(users)/\(uid)/\(donations)"
     }
     
+    /// Global donation requests (goal-based requests; if used). Name must match Firestore rules.
+    static let donationRequests = "donation_requests"
+    
     // MARK: - Charities
     
     /// Global charities collection
@@ -197,22 +200,9 @@ enum FirestorePaths {
         "\(users)/\(uid)/\(ramadanLogs)"
     }
     
-    // MARK: - Reels (global feed; data-driven)
+    // MARK: - Journey Progress (per-user week/month slot tracking; JourneyProgressViewModel)
     
-    /// Global reels collection. Documents: title, reciterName, surahName, tags, videoType, videoURL, thumbnailURL, durationSeconds, isActive, createdAt, sortRank
-    static let reels = "reels"
-    static func reelDocument(reelId: String) -> String {
-        "\(reels)/\(reelId)"
-    }
-    
-    /// User reel interactions: users/{uid}/reelInteractions/{reelId} — liked, saved, lastWatchedSeconds, updatedAt
-    static let reelInteractions = "reelInteractions"
-    static func reelInteractionDocument(uid: String, reelId: String) -> String {
-        "\(users)/\(uid)/\(reelInteractions)/\(reelId)"
-    }
-    static func reelInteractionsCollection(uid: String) -> String {
-        "\(users)/\(uid)/\(reelInteractions)"
-    }
+    static let journey = "journey"
     
     // MARK: - Helper Functions
     

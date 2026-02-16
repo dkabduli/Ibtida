@@ -232,7 +232,7 @@ class JourneyProgressViewModel: ObservableObject {
         do {
             let doc = try await db.collection(FirestorePaths.users)
                 .document(uid)
-                .collection("journey")
+                .collection(FirestorePaths.journey)
                 .document("weekProgress")
                 .collection("weeks")
                 .document(weekId)
@@ -307,7 +307,7 @@ class JourneyProgressViewModel: ObservableObject {
         
         try await db.collection(FirestorePaths.users)
             .document(uid)
-            .collection("journey")
+            .collection(FirestorePaths.journey)
             .document("weekProgress")
             .collection("weeks")
             .document(weekId)
@@ -335,7 +335,7 @@ class JourneyProgressViewModel: ObservableObject {
         do {
             let doc = try await db.collection(FirestorePaths.users)
                 .document(uid)
-                .collection("journey")
+                .collection(FirestorePaths.journey)
                 .document("monthProgress")
                 .collection("months")
                 .document(monthId)
@@ -428,7 +428,7 @@ class JourneyProgressViewModel: ObservableObject {
             
             try await db.collection(FirestorePaths.users)
                 .document(uid)
-                .collection("journey")
+                .collection(FirestorePaths.journey)
                 .document("monthProgress")
                 .collection("months")
                 .document(currentMonth.monthId)

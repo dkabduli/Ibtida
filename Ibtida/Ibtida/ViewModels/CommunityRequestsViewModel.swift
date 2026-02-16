@@ -40,27 +40,21 @@ class CommunityRequestsViewModel: ObservableObject {
     // MARK: - Initialization
     
     init() {
-        #if DEBUG
-        print("✅ CommunityRequestsViewModel initialized")
-        #endif
+        AppLog.verbose("CommunityRequestsViewModel initialized")
     }
     
     // MARK: - Load Requests
     
     func loadRequests() async {
         guard !isLoading else {
-            #if DEBUG
-            print("⏭️ CommunityRequestsViewModel: Already loading, skipping")
-            #endif
+            AppLog.verbose("CommunityRequestsViewModel: Already loading, skipping")
             return
         }
         
         isLoading = true
         errorMessage = nil
         
-        #if DEBUG
-        print("📖 CommunityRequestsViewModel: Loading requests from \(FirestorePaths.requests)")
-        #endif
+        AppLog.network("CommunityRequestsViewModel: Loading requests")
         
         do {
             let snapshot = try await db.collection(FirestorePaths.requests)
@@ -74,15 +68,11 @@ class CommunityRequestsViewModel: ObservableObject {
             
             hasLoadedOnce = true
             
-            #if DEBUG
-            print("✅ CommunityRequestsViewModel: Loaded \(requests.count) requests")
-            #endif
+            AppLog.verbose("CommunityRequestsViewModel: Loaded \(requests.count) requests")
             
         } catch {
             errorMessage = "Failed to load requests: \(error.localizedDescription)"
-            #if DEBUG
-            print("❌ CommunityRequestsViewModel: Error loading requests - \(error)")
-            #endif
+            AppLog.error("CommunityRequestsViewModel: Error loading requests – \(error.localizedDescription)")
         }
         
         isLoading = false
@@ -109,9 +99,7 @@ class CommunityRequestsViewModel: ObservableObject {
         errorMessage = nil
         successMessage = nil
         
-        #if DEBUG
-        print("💾 CommunityRequestsViewModel: Creating request - Title: \(title)")
-        #endif
+        AppLog.verbose("CommunityRequestsViewModel: Creating request")
         
         // Get user name
         var userName: String? = nil
@@ -119,9 +107,7 @@ class CommunityRequestsViewModel: ObservableObject {
             let userDoc = try await db.collection(FirestorePaths.users).document(uid).getDocument()
             userName = userDoc.data()?["name"] as? String
         } catch {
-            #if DEBUG
-            print("⚠️ CommunityRequestsViewModel: Could not fetch user name")
-            #endif
+            AppLog.error("CommunityRequestsViewModel: Could not fetch user name")
         }
         
         let requestId = UUID().uuidString
@@ -152,9 +138,7 @@ class CommunityRequestsViewModel: ObservableObject {
             
             successMessage = "Request created successfully"
             
-            #if DEBUG
-            print("✅ CommunityRequestsViewModel: Created request - ID: \(requestId)")
-            #endif
+            AppLog.verbose("CommunityRequestsViewModel: Created request")
             
             // Reload to show new request
             await loadRequests()
@@ -164,9 +148,7 @@ class CommunityRequestsViewModel: ObservableObject {
             
         } catch {
             errorMessage = "Failed to create request: \(error.localizedDescription)"
-            #if DEBUG
-            print("❌ CommunityRequestsViewModel: Error creating request - \(error)")
-            #endif
+            AppLog.error("CommunityRequestsViewModel: Error creating request – \(error.localizedDescription)")
             isCreating = false
             return false
         }
@@ -180,9 +162,7 @@ class CommunityRequestsViewModel: ObservableObject {
             return
         }
         
-        #if DEBUG
-        print("🚩 CommunityRequestsViewModel: Reporting request - ID: \(requestId)")
-        #endif
+        AppLog.verbose("CommunityRequestsViewModel: Reporting request")
         
         let reportId = UUID().uuidString
         
@@ -201,15 +181,11 @@ class CommunityRequestsViewModel: ObservableObject {
             
             successMessage = "Report submitted. Thank you for helping keep our community safe."
             
-            #if DEBUG
-            print("✅ CommunityRequestsViewModel: Report submitted - ID: \(reportId)")
-            #endif
+            AppLog.verbose("CommunityRequestsViewModel: Report submitted")
             
         } catch {
             errorMessage = "Failed to submit report: \(error.localizedDescription)"
-            #if DEBUG
-            print("❌ CommunityRequestsViewModel: Error submitting report - \(error)")
-            #endif
+            AppLog.error("CommunityRequestsViewModel: Error submitting report – \(error.localizedDescription)")
         }
     }
     

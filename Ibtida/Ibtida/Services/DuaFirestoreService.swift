@@ -15,10 +15,7 @@ class DuaFirestoreService {
     
     private let db = Firestore.firestore()
     
-    // MARK: - Collection Paths
-    // Duas are stored GLOBALLY so all users can see them
-    private let duasCollection = "duas"
-    private let dailyDuasCollection = "daily_duas"
+    // MARK: - Collection Paths (duas stored globally; all users can see)
     
     private init() {
         #if DEBUG
@@ -27,8 +24,7 @@ class DuaFirestoreService {
     }
     
     // MARK: - Load Duas (GLOBAL) - Time-bounded to today or last 24 hours
-    // TODO: PRODUCTION BACKEND CLEANUP
-    // For production, implement one of the following:
+    // NOTE: For production scale, consider Cloud Function scheduled cleanup or Firestore TTL.
     // Option 1: Cloud Function scheduled cleanup (recommended)
     //   - Schedule a Cloud Function to run daily at 1:00 AM UTC
     //   - Delete all duas where createdAt < now - 24 hours
@@ -52,7 +48,7 @@ class DuaFirestoreService {
             let yesterday = calendar.date(byAdding: .day, value: -1, to: startOfToday)!
             
             // Query duas created today or in last 24 hours
-            let snapshot = try await db.collection(duasCollection)
+            let snapshot = try await db.collection(FirestorePaths.duas)
                 .whereField("createdAt", isGreaterThan: Timestamp(date: yesterday))
                 .order(by: "createdAt", descending: true)
                 .limit(to: limit)
@@ -90,11 +86,11 @@ class DuaFirestoreService {
         
         do {
             // Check if daily dua exists for today
-            let doc = try await db.collection(dailyDuasCollection).document(dateString).getDocument()
+            let doc = try await db.collection(FirestorePaths.dailyDuas).document(dateString).getDocument()
             
             if doc.exists, let data = doc.data(), let duaId = data["duaId"] as? String {
                 // Daily dua already exists, load it
-                let duaDoc = try await db.collection(duasCollection).document(duaId).getDocument()
+                let duaDoc = try await db.collection(FirestorePaths.duas).document(duaId).getDocument()
                 
                 guard let dua = parseDuaDocument(duaDoc) else {
                     #if DEBUG
@@ -153,7 +149,7 @@ class DuaFirestoreService {
             "expiresAt": Timestamp(date: Calendar.current.date(byAdding: .day, value: 1, to: date)!)
         ]
         
-        try await db.collection(dailyDuasCollection).document(dateString).setData(data, merge: false)
+        try await db.collection(FirestorePaths.dailyDuas).document(dateString).setData(data, merge: false)
         
         #if DEBUG
         print("✅ DuaFirestoreService: Selected and saved daily dua - \(dateString): \(selectedDua.id)")
@@ -172,7 +168,7 @@ class DuaFirestoreService {
             "selectedAt": Timestamp(date: Date())
         ]
         
-        try await db.collection(dailyDuasCollection).document(dateString).setData(data, merge: true)
+        try await db.collection(FirestorePaths.dailyDuas).document(dateString).setData(data, merge: true)
         
         #if DEBUG
         print("✅ DuaFirestoreService: Saved daily dua selection - \(dateString): \(duaId)")
@@ -198,7 +194,7 @@ class DuaFirestoreService {
             "createdAt": FieldValue.serverTimestamp() // Always use server timestamp
         ]
         
-        try await db.collection(duasCollection).document(dua.id).setData(data, merge: true)
+        try await db.collection(FirestorePaths.duas).document(dua.id).setData(data, merge: true)
         
         #if DEBUG
         print("✅ DuaFirestoreService: Saved dua - ID: \(dua.id)")
@@ -208,7 +204,7 @@ class DuaFirestoreService {
     // MARK: - Toggle Ameen
     
     func toggleAmeen(duaId: String, userId: String) async throws -> (newCount: Int, userSaidAmeen: Bool) {
-        let docRef = db.collection(duasCollection).document(duaId)
+        let docRef = db.collection(FirestorePaths.duas).document(duaId)
         
         #if DEBUG
         print("🤲 DuaFirestoreService: Toggling ameen - Dua: \(duaId), User: \(userId)")
@@ -276,7 +272,7 @@ class DuaFirestoreService {
     // MARK: - Get All Tags
     
     func getAllTags() async throws -> [String] {
-        let snapshot = try await db.collection(duasCollection).getDocuments()
+        let snapshot = try await db.collection(FirestorePaths.duas).getDocuments()
         
         var allTags = Set<String>()
         

@@ -31,7 +31,7 @@ Use this after the behavior-preserving refinement pass to confirm nothing regres
 
 - [ ] **No blank states on first tap** – Home prayer bubble tap shows fasting sheet or prayer status sheet (with content); Journey day tap shows day detail (with content); no empty sheet or white screen on first interaction.
 - [ ] **No redundant fetch loops** – Loading prayer data or Journey data does not trigger repeated network calls in a loop (observe in Network inspector or logs if needed).
-- [ ] **Stable memory** – No obvious leaks (e.g. Reels tab: after scrolling many reels and leaving tab, active player count returns to 0; no unbounded growth in debug tools).
+- [ ] **Stable memory** – No obvious leaks; no unbounded growth in debug tools.
 
 ---
 

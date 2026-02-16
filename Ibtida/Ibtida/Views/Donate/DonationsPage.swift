@@ -58,6 +58,7 @@ struct DonationsPage: View {
                     }
                 }
             }
+            .tabBarScrollClearance()
             .navigationTitle("Donations")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
@@ -571,99 +572,6 @@ struct WarmCharityCategoryCard: View {
             .warmCard(elevation: .low)
         }
         .buttonStyle(.plain)
-    }
-}
-
-// MARK: - Warm Create Request Sheet
-
-struct WarmCreateRequestSheet: View {
-    @ObservedObject var viewModel: CommunityRequestsViewModel
-    @Environment(\.dismiss) var dismiss
-    @Environment(\.colorScheme) var colorScheme
-    
-    @State private var title = ""
-    @State private var description = ""
-    @State private var goalAmount = ""
-    
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.warmBackground(colorScheme).ignoresSafeArea()
-                
-                Form {
-                    Section {
-                        TextField("Title", text: $title)
-                    } header: {
-                        Text("Request Title")
-                    }
-                    .listRowBackground(Color.warmCard(colorScheme))
-                    
-                    Section {
-                        TextEditor(text: $description)
-                            .frame(minHeight: 100)
-                    } header: {
-                        Text("Description")
-                    } footer: {
-                        Text("Explain what help is needed and why")
-                    }
-                    .listRowBackground(Color.warmCard(colorScheme))
-                    
-                    Section {
-                        TextField("Amount (optional)", text: $goalAmount)
-                            .keyboardType(.decimalPad)
-                    } header: {
-                        Text("Goal Amount ($)")
-                    } footer: {
-                        Text("Leave empty if not seeking a specific amount")
-                    }
-                    .listRowBackground(Color.warmCard(colorScheme))
-                    
-                    Section {
-                        Text("All requests are visible to the community. Please ensure your request is genuine and respectful.")
-                            .font(.system(size: 14))
-                            .foregroundColor(Color.warmSecondaryText(colorScheme))
-                    }
-                    .listRowBackground(Color.warmCard(colorScheme))
-                }
-                .scrollContentBackground(.hidden)
-            }
-            .navigationTitle("Create Request")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundColor(Color.warmSecondaryText(colorScheme))
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Submit") { submitRequest() }
-                        .foregroundColor(.mutedGold)
-                        .fontWeight(.semibold)
-                        .disabled(title.isEmpty || description.isEmpty || viewModel.isCreating)
-                }
-            }
-            .overlay {
-                if viewModel.isCreating {
-                    Color.black.opacity(0.3)
-                        .ignoresSafeArea()
-                    ProgressView()
-                        .tint(.white)
-                }
-            }
-        }
-    }
-    
-    private func submitRequest() {
-        let goal = Double(goalAmount)
-        Task {
-            let success = await viewModel.createRequest(
-                title: title,
-                description: description,
-                goalAmount: goal
-            )
-            if success {
-                dismiss()
-            }
-        }
     }
 }
 

@@ -82,7 +82,7 @@ This document describes the refinement pass applied to the Ibtida codebase. **No
 - **Auth and onboarding flow:** Unchanged.
 - **Prayer logging (Home):** Fasting prompt → prayer status → Firestore write; credits/streak logic unchanged.
 - **Journey:** Current week first, last 5 weeks, sheet presentation (activeDayDetail before activeSheetRoute) unchanged.
-- **Donate / Duas / Profile / Ramadan / Reels / Admin:** No flow or feature changes.
+- **Donate / Duas / Profile / Ramadan / Admin:** No flow or feature changes. (Reels was removed in a later maintenance pass.)
 - **Firestore:** No collection or document renames; no new or removed fields; no query semantics changed.
 - **CreditRules and points:** No value or formula changes.
 - **DateUtils and week/day logic:** No logic or calendar changes.

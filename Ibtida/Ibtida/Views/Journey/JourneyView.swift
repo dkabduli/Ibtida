@@ -14,24 +14,16 @@ import FirebaseAuth
 private enum JourneyLayout {
     /// Horizontal padding for content; matches Home (20)
     static let horizontalPadding: CGFloat = 20
-    /// Vertical spacing between sections; matches HomePrayerView VStack spacing (20)
+    /// Vertical spacing between sections; matches HomePrayerView (20)
     static let sectionSpacing: CGFloat = 20
     /// Internal card padding; matches Home (16)
     static let cardPadding: CGFloat = 16
-    /// Summary bubble grid: same column count as Home prayer circles (3)
-    static let summaryColumnCount = 3
-    /// Grid spacing; DesignSystem AppSpacing.sm (8) for tighter fit
+    /// Grid spacing; DesignSystem AppSpacing.sm (8)
     static let gridSpacing: CGFloat = AppSpacing.sm
-    /// Max width per summary bubble; reduced to fit 3 on small screens
-    static let summaryBubbleMaxWidth: CGFloat = 110
-    /// Min width per summary bubble on small phones
-    static let summaryBubbleMinWidth: CGFloat = 68
-    /// Last-5-weeks card width (horizontal scroller); reduced for better fit
+    /// Last-5-weeks card width (horizontal scroller); fits iPhone SE (320pt) and larger
     static let weekCardWidth: CGFloat = 100
-    /// Bottom padding inside scroll content (matches Home .padding(.bottom, 24))
+    /// Bottom padding inside scroll content (matches Home)
     static let bottomInset: CGFloat = 24
-    /// Header summary grid height (fits 3 compact cards)
-    static let summaryGridHeight: CGFloat = 76
 }
 
 struct JourneyView: View {
@@ -185,7 +177,7 @@ struct JourneyView: View {
                 .foregroundColor(Color.warmSecondaryText(colorScheme))
                 .fixedSize(horizontal: false, vertical: true)
             
-            // Summary cards using flexible grid (no GeometryReader needed)
+            // Summary cards: flexible equal-width; scale on small phones (e.g. iPhone SE 320pt)
             HStack(spacing: JourneyLayout.gridSpacing) {
                 compactCard(
                     icon: "flame.fill",
@@ -246,19 +238,21 @@ struct JourneyView: View {
                 .font(.system(size: 17, weight: .bold, design: .rounded))
                 .foregroundColor(Color.warmText(colorScheme))
                 .lineLimit(1)
-                .minimumScaleFactor(0.6)
+                .minimumScaleFactor(0.5)
             Text(label)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(Color.warmSecondaryText(colorScheme))
                 .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
-        .frame(maxWidth: .infinity)
+        .frame(minWidth: 0, maxWidth: .infinity)
         .padding(.vertical, AppSpacing.sm)
         .padding(.horizontal, AppSpacing.xs)
         .background(
             RoundedRectangle(cornerRadius: 10)
                 .fill(Color.warmSurface(colorScheme))
         )
+        .contentShape(Rectangle())
     }
 
     // MARK: - CurrentWeekProgressCard (same card padding as Home; WarmSectionHeader)
@@ -349,7 +343,7 @@ struct JourneyView: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity)
+        .frame(minWidth: 0, maxWidth: .infinity)
         .padding(.vertical, AppSpacing.sm)
         .padding(.horizontal, AppSpacing.xs)
         .background(
@@ -392,7 +386,7 @@ struct JourneyView: View {
         return f.string(from: date)
     }
 
-    // MARK: - Last5WeeksScroller (horizontal, left-justified; same spacing as Home FiveWeekProgressView)
+    // MARK: - Last5WeeksScroller (current week first, left-aligned; scroll right for older weeks)
 
     private var Last5WeeksScroller: some View {
         VStack(alignment: .leading, spacing: AppSpacing.md) {
@@ -403,9 +397,9 @@ struct JourneyView: View {
                         lastWeekCard(week: week)
                     }
                 }
-                .padding(.trailing, JourneyLayout.horizontalPadding)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, JourneyLayout.horizontalPadding)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

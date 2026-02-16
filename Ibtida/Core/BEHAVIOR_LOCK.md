@@ -13,10 +13,9 @@
 | **Journey** | JourneyView, JourneyMilestoneView, JourneyDayDetailSheet | JourneyViewModel, PrayerLogFirestoreService, UserProfileFirestoreService | JourneyWeekSummary, JourneyDayDetail |
 | **Donate** | DonationsPage, DonateView, CategoryCharitiesView, OrganizationIntakeView, CreditConversionView | DonationViewModel, DonationService, UserDonationsFirestoreService, OrganizationIntakeService | Donation, Charity |
 | **Duas** | DuaWallView, SubmitDuaView, DuaFilterView | DuaViewModel, DuaFirestoreService, UIStateFirestoreService | Dua |
-| **Requests** | RequestsView (inside Donate) | CommunityRequestsViewModel, RequestsView (Firestore in view) | RequestModel |
+| **Requests** | RequestsView (Donate: My Requests), DonationsPage | RequestsViewModel, UserRequestsFirestoreService; Admin: CommunityRequestsViewModel | DuaRequest |
 | **Profile** | ProfileView, DonationsHistoryView, SettingsView, AppSettingsView, DiagnosticsView | UserProfileFirestoreService | UserProfile, Donation |
 | **Ramadan** | RamadanTabView, RamadanDaySheet | RamadanViewModel, CalendarConfigManager, RamadanLogFirestoreService | RamadanConfig, RamadanLog |
-| **Reels** | ReelsTabView | ReelsFeedViewModel, ReelService, ReelInteractionService, PlayerManager | Reel, ReelInteraction |
 | **Admin** | AdminTabView, AdminDashboardView, AdminRequestsView, AdminModerationToolsView, AdminCreditConversionView | Various (Firestore in ViewModels/Views) | Report, CreditConversionRequest |
 | **Core** | IbtidaApp, RootTabView | ThemeManager, CalendarConfigManager, FirestoreService, PerformanceCache, DateUtils, CreditRules | — |
 
@@ -25,7 +24,7 @@
 ## 2. Behaviors That Must Remain Identical
 
 ### Navigation & flows
-- **Tab order:** Home → Journey → [Ramadan if enabled] → Reels → Donate → Duas → Profile → [Admin if admin]
+- **Tab order:** Home → Journey → Donate → Duas → Profile → [Admin if admin] (Ramadan via config if enabled)
 - **Auth flow:** Loading → Logged out (LoginView) OR Logged in → onboarding if gender/onboarding not set → RootTabView.
 - **Home prayer flow:** Tap bubble → (if fasting prompt needed) FastingPromptSheet → WarmPrayerStatusSheet → save → sheet dismiss.
 - **Journey:** Current week first; last 5 weeks horizontal; tap day → JourneyDayDetailSheet.
@@ -37,12 +36,10 @@
 - Jumu'ah: brothers on Friday see Jumu'ah instead of Dhuhr; status options per PrayerType.statusesForJummahBrother().
 - Donate / credit conversion / organization intake: existing flows and Firestore writes unchanged.
 - Dua ameen / submit / filter: existing behavior unchanged.
-- Reels: like/save/share and playback rules unchanged.
-
 ### Data reads/writes (Firestore)
-- **Collections/paths:** Do NOT rename. Use FirestorePaths for all references (users, prayerDays, dailyLogs, duas, daily_duas, requests, reports, donations, ramadanLogs, reels, reelInteractions, app_config, etc.).
+- **Collections/paths:** Do NOT rename. Use FirestorePaths for all references (users, prayerDays, dailyLogs, duas, daily_duas, requests, reports, donations, ramadanLogs, app_config, etc.).
 - **Document shapes:** No field renames or removals. totalCredits (with legacy "credits" read fallback where already present).
-- **Query semantics:** Same filters, orderBy, limit, pagination (e.g. reels: isActive == true, tags array-contains "quran"; Journey: 5 weeks, journeyCalendar).
+- **Query semantics:** Same filters, orderBy, limit, pagination (Journey: 5 weeks, journeyCalendar).
 
 ### Points / credit logic
 - CreditRules: fasting bonus, Sunnah bonus, Jumu'ah bonus, streak logic.

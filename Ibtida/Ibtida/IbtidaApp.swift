@@ -50,7 +50,6 @@ struct IbtidaApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var authService = AuthService.shared
     @StateObject private var themeManager = ThemeManager.shared
-    @StateObject private var networkMonitor = NetworkMonitor()
     
     init() {
         // Setup auth listener after Firebase is configured
@@ -69,7 +68,6 @@ struct IbtidaApp: App {
             RootView()
                 .environmentObject(authService)
                 .environmentObject(themeManager)
-                .environmentObject(networkMonitor)
                 // SINGLE POINT OF APPEARANCE CONTROL
                 // This is the ONLY place preferredColorScheme is applied
                 // Mapping: system → nil (follows iOS), light → .light, dark → .dark

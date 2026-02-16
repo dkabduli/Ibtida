@@ -3,7 +3,7 @@
 //  Ibtida
 //
 //  Monitors network reachability via NWPathMonitor. Publishes isOnline for UI.
-//  Logs path status changes once (no spam). Inject as environmentObject for Reels etc.
+//  Logs path status changes once (no spam). Available for offline UI and retry logic.
 //
 
 import Foundation

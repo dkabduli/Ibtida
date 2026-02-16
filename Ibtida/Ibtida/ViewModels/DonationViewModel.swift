@@ -86,7 +86,7 @@ class DonationViewModel: ObservableObject {
         
         do {
             let snapshot = try await db.collection(FirestorePaths.users).document(uid)
-                .collection("donations")
+                .collection(FirestorePaths.donations)
                 .order(by: "createdAt", descending: true)
                 .limit(to: 50)
                 .getDocuments()
@@ -134,7 +134,7 @@ class DonationViewModel: ObservableObject {
         
         do {
             let snapshot = try await db.collection(FirestorePaths.users).document(uid)
-                .collection("receipts")
+                .collection(FirestorePaths.receipts)
                 .order(by: "createdAt", descending: true)
                 .limit(to: 50)
                 .getDocuments()
@@ -181,7 +181,7 @@ class DonationViewModel: ObservableObject {
     
     func loadDonationRequests() async {
         do {
-            let snapshot = try await db.collection("donation_requests")
+            let snapshot = try await db.collection(FirestorePaths.donationRequests)
                 .whereField("status", isEqualTo: "approved")
                 .order(by: "createdAt", descending: true)
                 .limit(to: 20)
@@ -323,7 +323,7 @@ class DonationViewModel: ObservableObject {
             "createdAt": Timestamp(date: Date())
         ]
         
-        try await db.collection("donation_requests").addDocument(data: data)
+        try await db.collection(FirestorePaths.donationRequests).addDocument(data: data)
         
         #if DEBUG
         print("✅ DonationViewModel: Created donation request - \(title)")

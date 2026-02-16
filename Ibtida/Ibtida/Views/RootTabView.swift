@@ -2,21 +2,20 @@
 //  RootTabView.swift
 //  Ibtida
 //
-//  Main tab view - exactly FIVE tabs: Home, Journey, Reels, Donate, Dua.
-//  Profile/Settings (and Admin when isAdmin) are reached via Profile button in each tab's toolbar.
+//  Main tab view - exactly FIVE tabs: Home, Journey, Donate, Dua, Profile.
+//  Profile/Settings (and Admin when isAdmin) also reachable via toolbar in each tab.
 //
 
 import SwiftUI
 
 private let selectedTabKey = "ibtida_selected_tab"
 
-// Tab tags: 0 = Home, 1 = Journey, 2 = Reels, 3 = Donate, 4 = Dua
+// Tab tags: 0 = Home, 1 = Journey, 2 = Donate, 3 = Dua, 4 = Profile
 private let tabCount = 5
 
 struct RootTabView: View {
     @EnvironmentObject var authService: AuthService
     @EnvironmentObject var themeManager: ThemeManager
-    @EnvironmentObject var networkMonitor: NetworkMonitor
     @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var calendarConfig = CalendarConfigManager.shared
     @State private var selectedTab: Int = (UserDefaults.standard.object(forKey: selectedTabKey) as? Int).flatMap { $0 >= 0 && $0 < tabCount ? $0 : nil } ?? 0
@@ -35,23 +34,22 @@ struct RootTabView: View {
                 .tabItem { Label("Journey", systemImage: "chart.line.uptrend.xyaxis") }
                 .tag(1)
             
-            ReelsTabView()
-                .environmentObject(authService)
-                .environmentObject(themeManager)
-                .environmentObject(networkMonitor)
-                .tabItem { Label("Reels", systemImage: "play.rectangle.fill") }
-                .tag(2)
-            
             DonationsPage()
                 .environmentObject(authService)
                 .environmentObject(themeManager)
                 .tabItem { Label("Donate", systemImage: "heart.fill") }
-                .tag(3)
+                .tag(2)
             
             DuaWallView()
                 .environmentObject(authService)
                 .environmentObject(themeManager)
                 .tabItem { Label("Dua", systemImage: "hands.sparkles.fill") }
+                .tag(3)
+            
+            ProfileView()
+                .environmentObject(authService)
+                .environmentObject(themeManager)
+                .tabItem { Label("Profile", systemImage: "person.circle.fill") }
                 .tag(4)
         }
         .accentColor(.accentColor)

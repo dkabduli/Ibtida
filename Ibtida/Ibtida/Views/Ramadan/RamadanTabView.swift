@@ -110,7 +110,7 @@ struct RamadanTabView: View {
     
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if let total = viewModel.ramadanTotalDays,
+            if viewModel.ramadanTotalDays != nil,
                let dayNum = viewModel.ramadanDayNumber(for: Date()) {
                 Text("Day \(dayNum) of Ramadan")
                     .font(AppTypography.subheadline)

@@ -42,6 +42,7 @@ struct ProfileView: View {
                     .padding(.bottom, 32)
                 }
             }
+            .tabBarScrollClearance()
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.large)
             .onAppear { loadProfile() }
